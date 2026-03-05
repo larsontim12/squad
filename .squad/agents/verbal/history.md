@@ -71,3 +71,10 @@ Created `.squad/skills/history-hygiene/SKILL.md` to codify lesson from Kobayashi
 
 **Note:** v0.6.0 reference in history-hygiene entry is correct as-written — it documents the *Kobayashi incident* that taught the team the skill itself. No change needed.
 
+### #194: SDK Mode Detection — Coordinator Prompt Update
+- Added `### SDK Mode Detection` section to `.github/agents/squad.agent.md` under `## Team Mode`, before `### Issue Awareness`
+- Detection: coordinator checks for `squad/` directory or `squad.config.ts` at project root
+- Three behavioral changes when active: edit redirection (target `squad/*.ts` not `.squad/*.md`), build reminder (`squad build`), richer config source from typed definitions
+- Core principle baked into prompt: SDK mode extends markdown mode, `.squad/` remains the runtime format
+- Kept to ~10 lines — prompt section, not documentation
+

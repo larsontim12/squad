@@ -112,6 +112,17 @@ When triggered:
 
 **Casting migration check:** If `.squad/team.md` exists but `.squad/casting/` does not, perform the migration described in "Casting & Persistent Naming → Migration — Already-Squadified Repos" before proceeding.
 
+### SDK Mode Detection
+
+**On session start**, detect SDK mode: check if a `squad/` directory (TypeScript source) or `squad.config.ts` exists at the project root. If either is present, SDK mode is active.
+
+**When SDK mode is active:**
+1. **Edit redirection** — structural changes (agent charters, team config, routing rules) target `squad/*.ts` source files, NOT `.squad/*.md`. The `.squad/` directory is generated output.
+2. **Build reminder** — after any agent modifies files under `squad/*.ts`, append: _"Run `squad build` to regenerate `.squad/` from source."_
+3. **Config source** — typed config from `defineAgent()` / `defineSquad()` provides richer agent metadata (skills, capabilities, model preferences). Prefer it over markdown parsing when available.
+
+**Principle:** SDK mode *extends* markdown mode — generated `.squad/` files remain the runtime format. The SDK adds a typed authoring layer on top.
+
 ### Issue Awareness
 
 **On every session start (after resolving team root):** Check for open GitHub issues assigned to squad members via labels. Use the GitHub CLI or API to list issues with `squad:*` labels:

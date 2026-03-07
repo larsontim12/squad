@@ -64,3 +64,15 @@
 **Core CLI solid.** No regressions introduced by Phase 2 work. Failures are backlog items for Phase 3 stabilization.
 
 **Team Status:** Safe to proceed with further feature work. No blocking regressions from Phase 2.
+
+## 📌 Phase 3 Test Stabilization — 2026-03-06
+
+**All 16 pre-existing test failures resolved.** PR #235 on branch `squad/phase3-test-fixes`.
+
+**Root causes found:**
+- **Global squad env leakage:** Tests on Windows hit the real `APPDATA/squad/.squad` path, contaminating first-run and consult code paths. Fix: isolate `APPDATA`/`LOCALAPPDATA`/`XDG_CONFIG_HOME` in test env.
+- **XDG_CONFIG_HOME ignored on Windows:** `resolveGlobalSquadPath()` reads `APPDATA` on win32, not `XDG_CONFIG_HOME`. Consult tests only set XDG. Fix: add APPDATA overrides.
+- **ESM import hoisting defeats NODE_NO_WARNINGS:** `cli-entry.ts` sets `process.env.NODE_NO_WARNINGS = '1'` at line 11, but ESM hoists imports before top-level code runs, so SQLite ExperimentalWarning fires before suppression. Fix: set NODE_NO_WARNINGS in TerminalHarness spawn env.
+- **Environment-dependent assertions:** Feature files expected text that depends on host machine state (global squad existence). Fix: use assertions that work regardless of host state.
+
+**Final count:** 134 test files, 3656 tests passing, 0 failures, 3 todo.

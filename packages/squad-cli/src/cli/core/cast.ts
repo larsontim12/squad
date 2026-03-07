@@ -410,9 +410,10 @@ export async function createTeam(teamRoot: string, proposal: CastProposal): Prom
     membersCreated.push(member.name);
   }
 
-  // Update team.md — preserve content before and after ## Members
+  // Create or update team.md
   const teamPath = join(squadDir, 'team.md');
   if (existsSync(teamPath)) {
+    // Update existing — preserve content before and after ## Members
     const content = await readFile(teamPath, 'utf8');
     const membersIdx = content.indexOf('## Members');
     if (membersIdx !== -1) {
@@ -428,14 +429,59 @@ export async function createTeam(teamRoot: string, proposal: CastProposal): Prom
       await writeFile(teamPath, newContent);
       filesCreated.push(teamPath);
     }
+  } else {
+    // Create from scratch — fresh project with no prior .squad/ directory
+    const projectName = proposal.projectDescription
+      ? proposal.projectDescription.slice(0, 80).replace(/\n/g, ' ')
+      : 'Squad Project';
+    const freshContent = [
+      '# Squad Team',
+      '',
+      `> ${projectName}`,
+      '',
+      '## Coordinator',
+      '',
+      '| Name | Role | Notes |',
+      '|------|------|-------|',
+      '| Squad | Coordinator | Routes work, enforces handoffs and reviewer gates. |',
+      '',
+      buildMembersTable(allMembers),
+      '## Project Context',
+      '',
+      `- **Project:** ${projectName}`,
+      `- **Created:** ${new Date().toISOString().split('T')[0]}`,
+      '',
+    ].join('\n');
+    await writeFile(teamPath, freshContent);
+    filesCreated.push(teamPath);
   }
 
-  // Update routing.md — append routing table
+  // Create or update routing.md
   const routingPath = join(squadDir, 'routing.md');
+  const routingTable = buildRoutingTable(allMembers);
   if (existsSync(routingPath)) {
+    // Update existing — append routing table
     const content = await readFile(routingPath, 'utf8');
-    const table = buildRoutingTable(allMembers);
-    await writeFile(routingPath, content.trimEnd() + '\n\n' + table + '\n');
+    await writeFile(routingPath, content.trimEnd() + '\n\n' + routingTable + '\n');
+    filesCreated.push(routingPath);
+  } else {
+    // Create from scratch
+    const freshRouting = [
+      '# Squad Routing',
+      '',
+      '## Work Type Rules',
+      '',
+      '| Work Type | Primary Agent | Fallback |',
+      '|-----------|---------------|----------|',
+      '',
+      '## Governance',
+      '',
+      '- Route based on work type and agent expertise',
+      '- Update this file as team capabilities evolve',
+      '',
+      routingTable,
+    ].join('\n');
+    await writeFile(routingPath, freshRouting);
     filesCreated.push(routingPath);
   }
 

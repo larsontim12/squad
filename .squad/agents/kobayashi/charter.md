@@ -30,6 +30,51 @@
   4. What is the safest path to close that gap?
   5. Is this operation reversible? If not, triple-check.
 
+## Branching Model
+
+Squad uses a dev-first, three-branch workflow:
+- **dev** — Primary development branch (all PRs target dev by default)
+- **insiders** — Early-access channel (auto-synced from dev)
+- **main** — Stable releases (merged from dev, tagged)
+
+**Hard rules:**
+- Issue branches: `squad/{issue-number}-{slug}` (branched from dev)
+- All issue PRs target `dev`, NOT `main`
+- dev → insiders sync is automated
+- dev → main merge is manual (release gate)
+- Main only receives merges from dev. No direct commits.
+- **Parallel work:** Use `git worktree add` when 2+ issues are worked simultaneously. See `.squad/skills/git-workflow/SKILL.md`.
+- **Multi-repo:** Use separate clones as siblings, not worktrees. Coordinated PRs linked in descriptions.
+
+**Parallel work:**
+- 2+ simultaneous issues in one repo → `git worktree add ../{repo}-{issue} -b squad/{issue}-{slug} origin/dev`
+- Each agent gets its own worktree; no filesystem collision
+- Cross-repo work → separate sibling clones, not worktrees
+- See `.squad/skills/git-workflow/SKILL.md` for full procedures
+
+### Fork Contributor Procedure
+
+When contributing to bradygaster/squad from a fork:
+
+1. **Branch base:** Always create from `upstream/dev`, NOT `upstream/main`:
+   ```bash
+   git fetch upstream dev
+   git checkout -b username/issue-slug upstream/dev
+   ```
+2. **Changeset:** Run `npx changeset add` and commit the result BEFORE first push.
+3. **PR command:** Always specify base and head explicitly:
+   ```bash
+   gh pr create --base dev --repo bradygaster/squad --head username:branch-name
+   ```
+4. **Rebase before PR:** If branch diverged from `upstream/dev`, rebase before opening:
+   ```bash
+   git fetch upstream
+   git rebase --onto upstream/dev {wrong-ancestor-commit}
+   git push origin branch-name --force-with-lease
+   ```
+
+❌ **Never open a PR targeting `main` from a fork.** `main` is the release branch — it only receives merges from `dev`.
+
 ## Guardrails — Hard Rules
 
 **NEVER:**

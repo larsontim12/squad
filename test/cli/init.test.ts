@@ -91,11 +91,11 @@ describe('CLI: init command', () => {
     expect(existsSync(gitattributesPath)).toBe(true);
     
     const content = await readFile(gitattributesPath, 'utf-8');
-    expect(content).toContain('.squad/decisions/decisions.md merge=union');
+    expect(content).toContain('.squad/decisions.md merge=union');
     expect(content).toContain('.squad/orchestration-log/** merge=union');
   });
 
-  it('should append to .gitignore with log exclusions', async () => {
+  it('should append to .gitignore with runtime state exclusions', async () => {
     await runInit(TEST_ROOT);
     
     const gitignorePath = join(TEST_ROOT, '.gitignore');
@@ -104,6 +104,8 @@ describe('CLI: init command', () => {
     const content = await readFile(gitignorePath, 'utf-8');
     expect(content).toContain('.squad/orchestration-log/');
     expect(content).toContain('.squad/log/');
+    expect(content).toContain('.squad/decisions/inbox/');
+    expect(content).toContain('.squad/sessions/');
   });
 
   it('should copy templates to .squad/templates/', async () => {
@@ -126,14 +128,41 @@ describe('CLI: init command', () => {
     expect(skills.length).toBeGreaterThan(0);
   });
 
-  it('should copy workflow files to .github/workflows/', async () => {
+  it('should install exactly the 4 framework workflows', async () => {
     await runInit(TEST_ROOT);
     
     const workflowsPath = join(TEST_ROOT, '.github', 'workflows');
-    if (existsSync(workflowsPath)) {
-      const files = await readdir(workflowsPath);
-      const ymlFiles = files.filter(f => f.endsWith('.yml'));
-      expect(ymlFiles.length).toBeGreaterThan(0);
+    expect(existsSync(workflowsPath)).toBe(true);
+    
+    const frameworkWorkflows = [
+      'squad-heartbeat.yml',
+      'squad-triage.yml',
+      'squad-issue-assign.yml',
+      'sync-squad-labels.yml'
+    ];
+    
+    for (const workflow of frameworkWorkflows) {
+      expect(existsSync(join(workflowsPath, workflow))).toBe(true);
+    }
+  });
+
+  it('should NOT install CI/CD workflows', async () => {
+    await runInit(TEST_ROOT);
+    
+    const workflowsPath = join(TEST_ROOT, '.github', 'workflows');
+    
+    const cicdWorkflows = [
+      'squad-ci.yml',
+      'squad-release.yml',
+      'squad-docs.yml',
+      'squad-insider-release.yml',
+      'squad-preview.yml',
+      'squad-promote.yml',
+      'squad-label-enforce.yml'
+    ];
+    
+    for (const workflow of cicdWorkflows) {
+      expect(existsSync(join(workflowsPath, workflow))).toBe(false);
     }
   });
 

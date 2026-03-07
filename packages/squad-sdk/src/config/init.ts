@@ -14,6 +14,7 @@ import { fileURLToPath } from 'url';
 import { existsSync, cpSync, statSync, mkdirSync, writeFileSync, readFileSync, readdirSync } from 'fs';
 import { MODELS } from '../runtime/constants.js';
 import type { SquadConfig, ModelSelectionConfig, RoutingConfig } from '../runtime/config.js';
+import type { WorkstreamDefinition } from '../streams/types.js';
 
 // ============================================================================
 // Template Resolution
@@ -89,8 +90,8 @@ export interface InitOptions {
   projectDescription?: string;
   /** Agents to create */
   agents: InitAgentSpec[];
-  /** Config format (typescript or json) */
-  configFormat?: 'typescript' | 'json';
+  /** Config format (typescript or json for old format, sdk for new builder syntax, markdown for no config file) */
+  configFormat?: 'typescript' | 'json' | 'sdk' | 'markdown';
   /** User name for initial history entries */
   userName?: string;
   /** Skip files that already exist (default: true) */
@@ -109,6 +110,8 @@ export interface InitOptions {
   prompt?: string;
   /** If true, disable extraction from consult sessions (read-only consultations) */
   extractionDisabled?: boolean;
+  /** Optional workstream definitions — generates .squad/workstreams.json when provided */
+  streams?: WorkstreamDefinition[];
 }
 
 /**
@@ -329,6 +332,48 @@ function generateJsonConfig(options: InitOptions): string {
   return JSON.stringify(config, null, 2);
 }
 
+/**
+ * Generate SDK builder config file content (new defineSquad() format).
+ */
+function generateSDKBuilderConfig(options: InitOptions): string {
+  const { projectName, projectDescription, agents } = options;
+  
+  // Generate imports
+  let code = `import {\n  defineSquad,\n  defineTeam,\n  defineAgent,\n} from '@bradygaster/squad-sdk';\n\n`;
+  
+  code += `/**\n * Squad Configuration — ${projectName}\n`;
+  if (projectDescription) {
+    code += ` *\n * ${projectDescription}\n`;
+  }
+  code += ` */\n`;
+  
+  // Generate agent definitions
+  for (const agent of agents) {
+    const displayName = agent.displayName || titleCase(agent.name);
+    code += `const ${agent.name} = defineAgent({\n`;
+    code += `  name: '${agent.name}',\n`;
+    code += `  role: '${agent.role}',\n`;
+    code += `  description: '${displayName}',\n`;
+    code += `  status: 'active',\n`;
+    code += `});\n\n`;
+  }
+  
+  // Generate squad config
+  code += `export default defineSquad({\n`;
+  code += `  version: '1.0.0',\n\n`;
+  code += `  team: defineTeam({\n`;
+  code += `    name: '${projectName}',\n`;
+  if (projectDescription) {
+    code += `    description: '${projectDescription.replace(/'/g, "\\'")}',\n`;
+  }
+  code += `    members: [${agents.map(a => `'${a.name}'`).join(', ')}],\n`;
+  code += `  }),\n\n`;
+  code += `  agents: [${agents.map(a => a.name).join(', ')}],\n`;
+  code += `});\n`;
+  
+  return code;
+}
+
 // ============================================================================
 // Agent Template Generation
 // ============================================================================
@@ -438,6 +483,18 @@ function stampVersionInContent(content: string, version: string): string {
  * @param options - Initialization options
  * @returns Result with created file paths
  */
+
+/**
+ * Workflow files that are part of the Squad framework and should always be installed.
+ * Other workflows in templates/workflows/ are generic CI/CD scaffolding and are opt-in.
+ */
+const FRAMEWORK_WORKFLOWS = [
+  'squad-heartbeat.yml',
+  'squad-issue-assign.yml',
+  'squad-triage.yml',
+  'sync-squad-labels.yml',
+];
+
 export async function initSquad(options: InitOptions): Promise<InitResult> {
   const {
     teamRoot,
@@ -554,13 +611,21 @@ export async function initSquad(options: InitOptions): Promise<InitResult> {
   // Create configuration file
   // -------------------------------------------------------------------------
   
-  const configFileName = configFormat === 'typescript' ? 'squad.config.ts' : 'squad.config.json';
-  const configPath = join(teamRoot, configFileName);
-  const configContent = configFormat === 'typescript'
-    ? generateTypeScriptConfig(options)
-    : generateJsonConfig(options);
-  
-  await writeIfNotExists(configPath, configContent);
+  // When configFormat is 'markdown', skip config file generation entirely
+  let configPath: string;
+  if (configFormat !== 'markdown') {
+    const configFileName = configFormat === 'sdk' ? 'squad.config.ts' : 
+                           configFormat === 'typescript' ? 'squad.config.ts' : 'squad.config.json';
+    configPath = join(teamRoot, configFileName);
+    const configContent = configFormat === 'sdk' ? generateSDKBuilderConfig(options) :
+                          configFormat === 'typescript' ? generateTypeScriptConfig(options) :
+                          generateJsonConfig(options);
+    
+    await writeIfNotExists(configPath, configContent);
+  } else {
+    // No config file for markdown-only mode
+    configPath = '';
+  }
   
   // -------------------------------------------------------------------------
   // Create agent directories and files
@@ -739,13 +804,17 @@ ${projectDescription ? `- **Description:** ${projectDescription}\n` : ''}- **Cre
   }
   
   // -------------------------------------------------------------------------
-  // Create .gitignore entries for logs
+  // Create .gitignore entries for runtime state (logs, inbox, sessions)
+  // These paths are written during normal squad operation but should not be
+  // committed to version control (they are runtime state).
   // -------------------------------------------------------------------------
   
   const gitignorePath = join(teamRoot, '.gitignore');
   const ignoreEntries = [
     '.squad/orchestration-log/',
     '.squad/log/',
+    '.squad/decisions/inbox/',
+    '.squad/sessions/',
   ];
   
   let existingIgnore = '';
@@ -756,7 +825,7 @@ ${projectDescription ? `- **Description:** ${projectDescription}\n` : ''}- **Cre
   const missingIgnore = ignoreEntries.filter(entry => !existingIgnore.includes(entry));
   if (missingIgnore.length > 0) {
     const block = (existingIgnore && !existingIgnore.endsWith('\n') ? '\n' : '')
-      + '# Squad: ignore generated logs\n'
+      + '# Squad: ignore runtime state (logs, inbox, sessions)\n'
       + missingIgnore.join('\n') + '\n';
     await appendFile(gitignorePath, block);
     createdFiles.push(toRelativePath(gitignorePath));
@@ -802,7 +871,8 @@ ${projectDescription ? `- **Description:** ${projectDescription}\n` : ''}- **Cre
     const workflowsDest = join(teamRoot, '.github', 'workflows');
     
     if (statSync(workflowsSrc).isDirectory()) {
-      const workflowFiles = readdirSync(workflowsSrc).filter(f => f.endsWith('.yml'));
+      const allWorkflowFiles = readdirSync(workflowsSrc).filter(f => f.endsWith('.yml'));
+      const workflowFiles = allWorkflowFiles.filter(f => FRAMEWORK_WORKFLOWS.includes(f));
       await mkdir(workflowsDest, { recursive: true });
       
       for (const file of workflowFiles) {
@@ -844,6 +914,38 @@ ${projectDescription ? `- **Description:** ${projectDescription}\n` : ''}- **Cre
     }
   }
   
+  // -------------------------------------------------------------------------
+  // Generate .squad/workstreams.json (when streams provided)
+  // -------------------------------------------------------------------------
+
+  if (options.streams && options.streams.length > 0) {
+    const workstreamsConfig = {
+      workstreams: options.streams,
+      defaultWorkflow: 'branch-per-issue',
+    };
+    const workstreamsPath = join(squadDir, 'workstreams.json');
+    await writeIfNotExists(workstreamsPath, JSON.stringify(workstreamsConfig, null, 2) + '\n');
+  }
+
+  // -------------------------------------------------------------------------
+  // Add .squad-workstream to .gitignore
+  // -------------------------------------------------------------------------
+
+  {
+    const workstreamIgnoreEntry = '.squad-workstream';
+    let currentIgnore = '';
+    if (existsSync(gitignorePath)) {
+      currentIgnore = readFileSync(gitignorePath, 'utf-8');
+    }
+    if (!currentIgnore.includes(workstreamIgnoreEntry)) {
+      const block = (currentIgnore && !currentIgnore.endsWith('\n') ? '\n' : '')
+        + '# Squad: workstream activation file (local to this machine)\n'
+        + workstreamIgnoreEntry + '\n';
+      await appendFile(gitignorePath, block);
+      createdFiles.push(toRelativePath(gitignorePath));
+    }
+  }
+
   // -------------------------------------------------------------------------
   // Create .first-run marker
   // -------------------------------------------------------------------------

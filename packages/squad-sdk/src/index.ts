@@ -39,3 +39,38 @@ export * from './build/index.js';
 export * from './sharing/index.js';
 export * from './upstream/index.js';
 export * from './remote/index.js';
+export * from './streams/index.js';
+
+// Builder functions (SDK-First Squad Mode)
+export {
+  defineTeam,
+  defineAgent,
+  defineRouting,
+  defineCeremony,
+  defineHooks,
+  defineCasting,
+  defineTelemetry,
+  defineDefaults,
+  defineSkill,
+  defineSquad,
+  BuilderValidationError,
+} from './builders/index.js';
+export type {
+  AgentRef,
+  ScheduleExpression,
+  BuilderModelId,
+  ModelPreference,
+  DefaultsDefinition,
+  TeamDefinition,
+  AgentCapability,
+  AgentDefinition,
+  RoutingRule as BuilderRoutingRule,
+  RoutingDefinition,
+  CeremonyDefinition,
+  HooksDefinition,
+  CastingDefinition,
+  TelemetryDefinition,
+  SkillDefinition as BuilderSkillDefinition,
+  SkillTool as BuilderSkillTool,
+  SquadSDKConfig,
+} from './builders/index.js';

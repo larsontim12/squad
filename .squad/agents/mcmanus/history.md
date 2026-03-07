@@ -1,3 +1,11 @@
+📌 Team update (2026-03-07T17:35:45Z): Issue #251 — SDK-First docs complete (decision tree, migration guide, defineSkill() reference). Follows Brady's lighthearted voice directive. Config mode documentation added. Ready for v0.8.21 release. — decided by McManus
+
+
+📌 Team update (2026-03-07T16:38:00Z): Triage labels applied to all 23 open issues on bradygaster/squad. Created 25 missing labels (squad:*, release:*, status:*, type:*, priority:*). Applied routing-aware labels per triage rules. 10 issues tagged release:v0.8.22, 11 backlog. Closed #194 (completed) and #231 (duplicate of #250). — decided by McManus
+
+📌 Team update (2026-03-07T16:25:00Z): Actions → CLI migration strategy finalized. 4-agent consensus: migrate 5 squad-specific workflows (12 min/mo) to CLI commands. Keep 9 CI/release workflows (215 min/mo, load-bearing). Zero-risk migration. v0.8.22 quick wins identified: squad labels sync + squad labels enforce. Phased rollout: v0.8.22 (deprecation + CLI) → v0.9.0 (remove workflows) → v0.9.x (opt-in automation). Brady's portability insight captured: CLI-first means Squad runs anywhere (containers, Codespaces). Customer communication strategy: "Zero surprise automation" as competitive differentiator. Decisions merged. — coordinated by Scribe
+
+📌 Team update (2026-03-07T16-19-00Z): Docs triage complete — v0.8.21 ready (SDK-First guide 705 lines, blog, changelog, contributors). #251/#210 queued for v0.8.22. Keaton: v0.8.21 releases pending #248 fix. Hockney: PRs #189/#191 held for v0.8.22. Brady: #249/#250/#251 locked, Actions-to-CLI shift. — decided by McManus
 # Project Context
 
 - **Owner:** Brady
@@ -27,6 +35,340 @@
 **Next Sprint:** Brady to prioritize High-priority items before v1 release; McManus available for execution.
 
 ## Learnings
+
+### 2026-03-13: Community Discussions — Terminal Flickering & Skill-Based Orchestration
+
+**Status:** Complete. Posted warm replies to Discussions #170 (terminal flickering) and #169 (skill-based orchestration).
+
+**Summary:**
+Brady asked McManus to reply to two community discussions that led to in-progress fixes:
+1. **Discussion #170 (Terminal Flickering)** — @Gareth064 and @diberry reported flickering where terminal output from an hour ago would flash back. The Squad traced this to raw ANSI escape codes bypassing Ink's render system. Issue #254 is in progress with fixes: removing direct stdout writes, reducing animation FPS from 15fps to 5fps, consolidating timers.
+2. **Discussion #169 (Skill-Based Orchestration)** — @swnger proposed decomposing Squad's monolithic instruction file into pluggable skills. The concept resonated with Brady, who filed Issue #255. The good news: defineSkill() shipped in commit 412ce58 and is exactly what was proposed.
+
+**Replies Posted:**
+- **#170:** Thanked @Gareth064 and @diberry by name, explained the root cause (ANSI codes vs. Ink), outlined the fix being worked on in #254, invited feedback when it ships.
+- **#169:** Thanked @swnger, confirmed that defineSkill() is now live and available in squad.config.ts, explained the benefits (typed, testable, composable), invited community feedback on workflows.
+
+**Tone Applied:**
+- Genuinely warm and appreciative (Brady's directive: "community should feel heard and valued")
+- Technical but accessible—explained issues without handwaving
+- Invited feedback and framed as partnership, not just "we're fixing it"
+- Signed as "— McManus 📝, on behalf of the Squad" per Brady's request
+
+**Pattern Reinforced:**
+Community contributors are often ahead of the curve. They identify real problems and propose elegant solutions. Our job as DevRel is to acknowledge this publicly and invite them back into the feedback loop. When we ship something they inspired, telling them directly builds loyalty and deepens engagement.
+
+### 2026-03-12: Community Thank-You Campaign — 23 Closed Issues
+
+**Status:** Complete. Posted warm thank-you comments to 23 closed community-filed issues.
+
+**Summary:**
+Systematically reviewed all closed community issues (filed by non-Brady users) and posted personalized gratitude comments from McManus on behalf of the Squad. Brady had already replied to most with technical thanks; my role was to add squad-wide appreciation and reinforce that we value community feedback.
+
+**Issues Replied To:**
+- #211 (diberry) — Squad management paradigms
+- #184 (tomasherceg) — Multi-agent coordination friction
+- #205 (csharpfritz) — Model flexibility per agent
+- #176 (johnwc) — Multi-repo support
+- #200 (tamirdresher) — Squad Workstreams PRD
+- #247 (marchermans) — Installation module resolution
+- #239 (dkirby-ms) — TUI blank-space polish
+- #223 (EirikHaughom) — Model/reasoning-level config
+- #237 (tamirdresher) — Unwired CLI commands regression
+- #202 (williamhallatt) — .gitignore footgun for config.json
+- #201 (williamhallatt) — Workflow separation (framework vs. product CI/CD)
+- #229 (uvirk) — Docs/release sync (squad doctor timing)
+- #214 (tihomir-kit) — Node.js built-in module resolution
+- #207 (fboucher) — Monorepo root-only limitation
+- #206 (Pruthviraj36) — Terminal blinking & scroll reset
+- #193 (wbreza) — Ceremonies file-size cliff + skills migration
+- #195 (dnoriegagoodwin) — Version stamp race condition
+- #218 (williamhallatt) — Fork workflow docs
+- #216 (williamhallatt) — TUI init flow UX gap
+
+**Skipped (Brady already replied):** #241, #148, #156, #157 — Brady's personal thanks were sufficient.
+
+**Tone & Approach:**
+- Each comment: 2-4 sentences, genuine warmth
+- Acknowledged specific technical insight from each contributor
+- Mentioned where the feedback fits into our roadmap
+- Signed as "— McManus 📝, on behalf of the Squad" (not "Coordinator")
+- Focused on *appreciation*, not solutions or commitments
+
+**Key Pattern Observed:**
+Community members are filing high-quality, well-researched issues—many with PRD-level rigor (e.g., #200, #193). These deserve acknowledgment beyond Brady's technical thanks. DevRel role is to reinforce that we listen and value their contributions, even when Brady is the first to reply.
+
+### 2026-03-11: Customer Impact Analysis — GitHub Actions vs. CLI-First Shift
+
+**Status:** Complete. Comprehensive analysis written to .squad/decisions/inbox/mcmanus-customer-impact.md.
+
+**Key Findings:**
+
+1. **Surprise Factor is REAL** — Users running squad init unexpectedly see 10-20 workflow runs in their Actions tab. This creates a trust deficit, even if billing isn't a problem.
+
+2. **Billing Math is Fine** (~100 min/month for active repos) but perception > reality. Users assume hidden automation = hidden costs.
+
+3. **Competitive Advantage:** Other AI tools (Cursor, Aider, etc.) don't install Actions. "Zero Actions required by default" is a positive differentiator.
+
+4. **Opt-In Model is the Answer:** 
+   - Tier 1 (default): CLI-only, no workflows
+   - Tier 2: squad init --with-automation (key workflows)
+   - Tier 3: squad init --with-full-automation (everything, enterprise)
+
+5. **DevRel Messaging Opportunity:** This isn't a downside—it's a story. "Squad puts you in control. No surprise automation." This aligns with transparency values.
+
+6. **Documentation Overhaul Needed:**
+   - README: Lead with CLI-first narrative
+   - New: docs/getting-started.md (CLI as primary UX)
+   - New: docs/automation/github-actions.md (when to use workflows)
+   - New: Migration guide for Beta users
+   - Blog: "Squad is Now CLI-First" announcement
+
+7. **Backward Compatibility:** Existing users keep workflows running. Upgrade path is optional, not forced.
+
+**Recommendation:** Adopt CLI-first as default. This builds customer trust through transparency and gives power users explicit control. Write migration guide and blog post to explain the shift.
+
+**Next:** Awaiting Brady's decision on CLI-first adoption. If greenlit, docs updates can begin immediately.
+
+### 2026-03-11: v0.8.21 Comprehensive Release Blog & CHANGELOG
+
+**Status:** Complete. Created comprehensive "What's New in v0.8.21" blog post and updated CHANGELOG.md to reflect full release scope.
+
+**Work completed:**
+
+1. **Created `docs/blog/025-v0821-comprehensive-release.md`** (15.8 KB):
+   - **Hero statement:** Positioned as MAJOR release combining SDK-First, 26 closed issues, 16 merged PRs, critical fixes, and platform stabilization
+   - **Section 1 — SDK-First Mode:** Full overview with 8 builders, `squad build` command, quick start code example, remote squad mode context
+   - **Section 2 — Remote Squad Mode:** New commands (`squad rc`, `squad init-remote`, `squad rc-tunnel`), dual-root resolver, key concepts
+   - **Section 3 — Critical Bug Fixes (7 issues fixed):**
+     - Installation crash (#247) — OTel dependency hard fail → resilient wrapper with no-op fallbacks
+     - CLI command wiring (#244) — 4 commands (rc, copilot-bridge, init-remote, rc-tunnel) now connected
+     - Model config round-trip (#245) — AgentDefinition.model accepts string | ModelPreference
+     - ExperimentalWarning suppression — process.emit override in cli-entry.ts
+     - Blankspace fix (#239) — Conditional height constraint removes idle UI clutter
+     - Windows EBUSY race condition — fs.rm with exponential backoff retry
+     - Regression fix wave (#221) — 25 test regressions resolved
+   - **Section 4 — CI Stabilization:** PRs #232, #228 GitHub Actions pipeline fixed
+   - **Section 5 — Community Contributions:** PR #199 (migration), PR #243 (blankspace), credited by PR number
+   - **By the Numbers table:** 26 issues, 16 PRs, 3,724 passing tests, 8 builders, 4 commands wired, 1 critical crash fix, full metrics breakdown
+   - **Technical Details subsection:** SDK mode detection, telemetry resilience architecture (otel-api.ts wrapper), remote squad path resolution
+   - **Documentation Updates:** Lists new guides and changes
+   - **Testing & Stability:** Test coverage breakdown (36 builder tests, 24 build tests, 29 round-trip tests, 25 regression fixes, Windows EBUSY tests)
+   - **What We Learned (4 insights):** Type safety is UX, optional dependencies unlock resilience, Windows needs dedicated testing, protected files criticality
+   - **What's Coming Next:** v0.8.22 roadmap (#249, #250, #251), Phase 2 (live reload), Phase 3 (OTel integration), beyond
+   - **Upgrade Path:** Clear instructions for v0.8.20 → v0.8.21, fresh install crash fix benefit, SDK-First migration optional
+   - **Community Credits:** Core team + Shayne Boyer, community contributors by PR
+   - **Getting Started (3 options):** Markdown (no changes), SDK-First (new), Azure Function sample
+   - **Important Fixes callout:** Lists 7 fixes users may have experienced
+
+2. **Updated `CHANGELOG.md`:**
+   - Changed [Unreleased] section → [0.8.21] - 2026-03-11 (dated to release day)
+   - **Added section:** "### Fixed — Critical Crash & Stability Issues" (9 items)
+     - Each fix linked to issue number (#247, #244, #245, #239, #221, #232, #228)
+     - Installation crash description with root cause and solution
+     - CLI command wiring explanation
+     - Model config round-trip detail
+     - Windows hardening notes
+     - Regression and CI fixes
+   - **Kept sections:** Added, Remote Squad Mode, Changed (Distribution & Versioning), Community, By the Numbers
+   - **Created new [Unreleased] section** at end for next release cycle
+   - CHANGELOG now serves as condensed version of blog post (bullets, no prose)
+
+3. **Tone & messaging decisions:**
+   - **No hype:** "Major release combining..." instead of "Revolutionary breakthrough"
+   - **Substantiated claims:** All issue numbers referenced, metrics verified from task description, all fixes explained with root cause
+   - **Practical value:** Installation crash fix emphasizes "fresh installs now work reliably", model config "survives round-trip cycles intact", Windows "dedicated testing" not just "fixed"
+   - **Complete scope:** Blog covers ALL deliverables from Brady's manifest (SDK-First, Remote Squad, 26 issues, 16 PRs, 3,724 tests, 0 logic failures)
+   - **Community visibility:** PR numbers credited, Shayne Boyer acknowledged for remote mode design
+   - **Developer-focused:** "Getting Started" offers 3 clear paths (stay markdown, try SDK-First, explore Azure sample)
+
+4. **Structural consistency:**
+   - Mirrors existing blog posts (v0.4.0, v0.8.21-sdk-first): hero statement, "What Shipped", by-numbers metrics, learnings, roadmap, upgrade path, community credits
+   - YAML frontmatter: title, date (2026-03-11), author (McManus), wave (7), tags, status (published), hero statement
+   - Code examples: defineSquad quick start, squad build commands, otel-api.ts pattern, curl example
+   - Links: All internal docs, sample projects, issue references
+
+5. **Completeness verification against manifest:**
+   - ✅ SDK-First Mode (8 builders, squad build command, detection)
+   - ✅ Remote Squad Mode (dual-root resolver, squad rc, squad init-remote, squad rc-tunnel)
+   - ✅ Installation crash fix (#247) with technical explanation
+   - ✅ CLI command wiring (#244)
+   - ✅ Model config round-trip (#245)
+   - ✅ ExperimentalWarning suppression
+   - ✅ Blankspace fix (#239)
+   - ✅ Test hardening (Windows EBUSY, speed gate)
+   - ✅ Regression fixes (#221 — 25 tests)
+   - ✅ CI stabilization (#232, #228)
+   - ✅ Community contributions (PR #199, PR #243)
+   - ✅ By the numbers (26 issues, 16 PRs, 3,724 tests)
+   - ✅ Version (0.8.21-preview.9)
+   - ✅ Roadmap teasers (v0.8.22, Phase 2/3)
+
+**Key messaging decisions:**
+- Installation crash as headline fix (solves immediate user pain point)
+- SDK-First positioned as opt-in (not breaking, not required)
+- Remote Squad Mode as team collaboration feature (cross-machine squads)
+- Technical details on telemetry resilience (explains why OTel no longer blocks)
+- Roadmap concrete but non-committal (Phase 2/3 unscheduled, #249-#251 for v0.8.22)
+
+**Impact:**
+- v0.8.21 release has full narrative (not just SDK features, but major stability improvements)
+- Installation crash fix positioned as critical for production readiness
+- Blog serves as source of truth for external communication
+- CHANGELOG condensed version enables quick scanning of what changed
+- Developers understand full value: SDK-First choice + crash elimination + test stability
+
+### 2026-03-10: v0.8.21 Release Blog Post
+
+**Status:** Complete. Created release blog post at `docs/blog/024-v0821-sdk-first-release.md`.
+
+**Work completed:**
+
+1. **Blog post structure** (following established pattern from v0.4.0 and other posts):
+   - YAML frontmatter: title, date (2026-03-10), author (McManus), wave (7), tags, status (published), hero statement
+   - Opening with experimental banner and summary paragraph
+   - "What Shipped" section broken into subsections:
+     - SDK-First Mode (Phase 1) overview
+     - Quick start code example (defineSquad with all builders)
+     - Azure Function sample with walkthrough
+   - Documentation section (new guides, what changed)
+   - Testing & Stability (test coverage by category)
+   - Technical Details (SDK mode detection, OTel readiness)
+   - By the Numbers (metrics table)
+   - What We Learned (4 key insights)
+   - What's Coming Next (Phase 2, Phase 3, beyond)
+   - Upgrade Path (v0.8.20 → v0.8.21 instructions)
+   - Try It Now (runnable commands)
+   - Contributors (core team + community)
+   - Links (repos, guides, issues)
+
+2. **Content decisions:**
+   - **Hero statement:** Positioned as "SDK-First Mode" — define in TypeScript, no manual YAML/markdown
+   - **Quick start code:** Full `defineSquad()` example with 3 agents (tone-reviewer, technical-reviewer, copy-editor) mirroring the Azure Function sample
+   - **Azure Function sample prominence:** Dedicated subsection with motivation, code example, usage curl, response JSON, production extension notes
+   - **Metrics table:** 7 metrics tracking issues, builders, tests, docs, samples (substantiated, not hype)
+   - **Learnings (4):** Type safety as UX, deep validation, serverless agents, protected files criticality
+   - **Roadmap:** Explicit Phase 2 (live reload), Phase 3 (OTel), and beyond items with brief descriptions
+
+3. **Tone applied:**
+   - **No hype:** "SDK-First Mode is opt-in" instead of "revolutionary"
+   - **Substantiated claims:** Every builder function listed with purpose; test counts verified; Azure sample is real
+   - **Practical examples:** Quick start is runnable; Azure curl example is copy-paste ready; response JSON shows actual structure
+   - **Consistent with blog style:** Mirrors v0.4.0 (What Shipped, Story/Technical Details, Learnings, What's Next) and v0.23 (Workstreams) structure
+   - **Developer-focused:** Emphasizes what you can do NOW (define in TypeScript, deploy anywhere) vs. future promises
+
+4. **References aligned with manifest:**
+   - Phase 1 deliverables: ✅ 8 builders, ✅ `squad build` command with 3 flags, ✅ SDK mode detection
+   - Documentation: ✅ `docs/sdk-first-mode.md` guide, ✅ `docs/reference/sdk.md` updated, ✅ README updated, ✅ CHANGELOG updated
+   - Testing: ✅ 36 builder tests, ✅ 24 build command tests, ✅ 29 round-trip tests = 89 total (blog states 3600+ suite)
+   - Sample: ✅ `samples/azure-function-squad/` with config.ts demonstrating all builders
+   - PRs merged: ✅ Referenced #204, #203, #198, #189
+
+5. **Blog file details:**
+   - **Path:** `docs/blog/024-v0821-sdk-first-release.md`
+   - **Size:** ~13 KB
+   - **Sections:** 16 major sections + YAML frontmatter
+   - **Code examples:** 4 (defineSquad, squad build command, Azure curl, response JSON)
+   - **Tables:** 2 (metrics, by the numbers)
+   - **Links:** 6 (SDK-First guide, reference, Azure sample, issues, repo)
+
+**Tone compliance checklist:**
+- ✅ No corporate hype ("Squad now ships" vs. "Revolutionary")
+- ✅ Substantiated metrics (builder count, test count, PR refs)
+- ✅ Experimental banner at top
+- ✅ Code examples are real and runnable
+- ✅ Learnings are specific and actionable
+- ✅ Roadmap is concrete (Phase 2 live reload, Phase 3 OTel)
+- ✅ Consistent with existing blog voice (practical, educational, factual)
+
+**Key messaging decisions:**
+- SDK-First is **opt-in** (not required for existing teams) — emphasizes choice and backward compatibility
+- Azure Function sample is **primary example** (not buried) — serverless is a key use case
+- Type safety emphasis > hype about "revolutionizing" config
+- OTel readiness as Phase 3 unlock (credible, not overselling)
+- Blog doesn't promise Phase 2/3 delivery dates (realistic roadmap)
+
+**Impact:**
+- Developers can now discover SDK-First Mode through blog post (entry point for new users)
+- Azure Function sample immediately actionable (copy, run, extend)
+- Release clearly positioned in v0.8.x cadence (wave 7, following 0.8.20)
+- Existing docs (guides, reference, sample README) all linked and discoverable
+- Team visibility: Contributors credited by name + role
+
+### 2026-03-08: Phase 1 SDK-First Mode documentation
+
+**Status:** Complete. Created comprehensive SDK-First Mode documentation across 3 files.
+
+**Work completed:**
+
+1. **docs/sdk-first-mode.md** (new, 18.5 KB):
+   - **Opening:** Problem statement: SDK-First = TypeScript config in code, not manual markdown.
+   - **Quick start:** 3-step walkthrough (install SDK, create squad.config.ts, run `squad build`)
+   - **Builder functions (8 total):**
+     - `defineTeam()` — team metadata, project context, members
+     - `defineAgent()` — role, tools, model, capabilities with proficiency levels (expert/proficient/basic)
+     - `defineRouting()` — pattern matching, priority, tier system (direct/lightweight/standard/full)
+     - `defineCeremony()` — schedule, participants, agenda
+     - `defineHooks()` — governance (write paths, blocked commands, PII scrubbing)
+     - `defineCasting()` — universe allowlists, overflow strategy
+     - `defineTelemetry()` — OTel configuration
+     - `defineSquad()` — top-level composition
+   - **`squad build` command:**
+     - Flags: `--check` (validate), `--dry-run` (preview), `--watch` (stub)
+     - Generated files and protection (decisions.md, history.md never overwritten)
+     - Config discovery order: squad/index.ts → squad.config.ts → squad.config.js
+   - **Validation:** Runtime type guards, no external dependencies (no Zod), descriptive errors
+   - **Migration guide:** Before/after comparison
+   - **Best practices:** 7 recommendations
+   - **Full example:** 100-line realistic config with all sections
+   - **See Also links** to SDK reference and governance guides
+   - **Tone:** Clear, factual, substantiated with actual code from source files
+
+2. **docs/reference/sdk.md** (updated):
+   - Added "Builder Functions (SDK-First Mode)" section after Configuration
+   - 8 builder function signatures with type definitions and code examples
+   - Links to new SDK-First Mode guide for comprehensive docs
+   - Maintains consistency with existing SDK reference structure
+
+3. **README.md** (updated):
+   - Added "SDK-First Mode" subsection in "What Gets Created" section
+   - Brief explanation (3 paragraphs) with code example
+   - Link to full SDK-First Mode guide
+   - Positions it as alternative to manual markdown maintenance
+   - Maintains concise README spirit (full details in dedicated doc)
+
+4. **CHANGELOG.md** (updated):
+   - Added "SDK-First Mode (Phase 1)" to Unreleased section
+   - 8 bullet points for builder functions
+   - 3 bullets for `squad build` command with flags
+   - SDK Mode Detection note
+   - Documentation subsection (guide, reference updates, README)
+
+**Key messaging decisions:**
+- Emphasis on "single source of truth in code" vs. manual markdown
+- Type safety + runtime validation as primary selling points
+- No external dependencies (no Zod, JSON Schema) — clean and lightweight
+- Practical examples from actual builder code
+- Tone: Educational, not hyped. Show what it does, not why it's "amazing"
+
+**Source of truth:**
+- Builder types from `packages/squad-sdk/src/builders/types.ts` (218 lines)
+- Builder implementations from `packages/squad-sdk/src/builders/index.ts` (396 lines)
+- CLI command from `packages/squad-cli/src/cli/commands/build.ts` (424 lines)
+- All code examples are real and functional
+
+**Tone applied:**
+- No hype: "Prefer TypeScript?" instead of "Revolutionize your team config"
+- Substantiated: Every builder field documented with type and purpose
+- Practical: Examples are runnable and realistic
+- Complete: Covers builder API, command flags, validation, config discovery, best practices
+
+**Impact:**
+- Users can now discover and learn SDK-First Mode without digging through code
+- Complete API reference enables autocomplete + IDE support
+- Migration path clear for teams transitioning from manual config
+- CHANGELOG entry positions Phase 1 as significant product milestone
+- Documentation prepares users for `squad build` command availability
 
 ### 2026-03-06: CLI help vs README audit — command reference corrected
 
@@ -851,6 +1193,49 @@ McManus updated CHANGELOG.md with v0.6.0 entries **[CORRECTED: v0.6.0 is outdate
 **Tone applied:** Light, prompt-first (beta tone preserved). No hype, no internal markers, CLI commands updated for v1 distribution.
 **Notes:**
 - docs/build.js already supported multi-directory sections — no build script changes needed
+
+### 2026-03-07: Contributors hall of fame created for v0.8.21
+
+**Status:** Complete. CONTRIBUTORS.md replaced placeholder with real squad roster and v0.8.21 release credits.
+
+**Work completed:**
+
+1. **Built "The Squad" section** — 20-member roster table with roles and domains:
+   - Extracted from `.squad/team.md` roster (Keaton through Waingro)
+   - Mapped each agent to their charter (from `.squad/agents/{member}/charter.md`)
+   - Created table: Name | Role | Domain
+   - Celebratory opener: "Squad is built by an AI team where each member owns a domain and ships real work."
+
+2. **Created v0.8.21 Contributors section** — Release credits for key work:
+   - **Saul:** Aspire Docker-only refactor — 27-test expansion (18→45), hardened CLI wiring
+   - **Verbal:** Squad Places integration — feedback session (18 agents), 3-wave artifact socialization
+   - **Fenster:** Squad Places client — REST API rewrite, offline queue, core runtime integration
+   - **Hockney:** Aspire test expansion — Docker path, port validation, error handling coverage
+   - **Kobayashi:** Release management — v0.8.20 docs, v0.8.21-preview.1 bump, branch strategy
+   - **McManus:** Docs & tone — audit completed (10 issues filed), tone ceiling enforced, consistency verified
+   - Source: `git --no-pager log v0.8.20..dev` commit messages + agent charter ownership
+
+3. **Updated docs/release-checklist.md** — Added permanent checklist item:
+   - New step in "Pre-Release Steps (All Releases)": **Review and update CONTRIBUTORS.md with v0.X.X section**
+   - Ensures every future release includes contributors page (Brady's requirement: "every release updated")
+   - Placed after CHANGELOG.md review, before version verification
+
+4. **Kept existing structure intact:**
+   - Insider Program section unchanged (top of file)
+   - Join section with CONTRIBUTING.md link preserved (bottom)
+   - Tone ceiling maintained: real credits, no hype, no unsubstantiated claims
+
+**Tone & messaging:**
+- Celebratory but grounded — lists actual work shipped by each contributor
+- Avoids marketing language; uses concrete technical outcomes (Docker refactor, test count, API rewrite)
+- Hierarchical: roster (all members) → v0.8.21 (active contributors) → Join (invitation to contribute)
+- Accessible: table format makes scanning easy, links connect to CONTRIBUTING.md for new contributors
+
+**Impact:**
+- Contributors page now reflects team structure and celebrates real work
+- Release checklist enforces contributors page updates (Brady requirement satisfied)
+- Sets template for future releases (v0.8.22, etc.) — format proven, process documented
+- Signals to users: This is a real team doing real work, each member accountable for their domain
 - docs/launch/ left untouched (internal release notes, separate concern)
 - migration-github-to-npm.md at root left as-is (separate migration doc, not part of restructure)
 
@@ -1005,3 +1390,52 @@ Multi-agent build of Rock-Paper-Scissors game with 10 AI strategies, Docker infr
 
 
 📌 Team update (2026-03-04T17:52:00Z): Migration docs file-safety guidance added — doctor command now live in CLI (fixes #188) — decided by Keaton, implemented by McManus
+
+📌 Team update (2026-03-05T22-10-00Z): SDK-First Mode documentation published (3-tier strategy). Documented all 8 builders, CLI flags, config discovery. Tone ceiling maintained. — decided by McManus
+
+📌 Team update (2026-03-07T15-55-00Z): v0.8.21 blog strategy finalized: two-post approach (SDK-First deep dive + comprehensive release wave). Blog post 025 published (336 lines), CHANGELOG updated with [0.8.21] section. Decision on blog scope and audience segmentation created. Ready for release communication. — decided by McManus
+
+### 2026-03-[Current]: SDK-First Documentation Update — Issue #251
+
+**Status:** Complete. All SDK-First documentation updated to cover `squad init --sdk` and `squad migrate` commands.
+
+**Work completed:**
+
+1. **Added "Which Mode Should I Use?" decision tree** to `docs/sdk-first-mode.md` (lines 22–31)
+   - Decision matrix: markdown-only vs. SDK-First vs. migration paths
+   - Frame: "Start with markdown" (default), SDK is opt-in upgrade
+   - Clear UX guidance for each scenario
+
+2. **Added "Starting a New SDK-First Project" section** (lines 100–133)
+   - `squad init --sdk` command documentation
+   - Example generated `squad.config.ts` with `defineSquad()` builder
+   - Contrast with default markdown-only flow
+
+3. **Added "Migrating an Existing Squad to SDK-First" section** (lines 137–176)
+   - `squad migrate --to sdk` / `--to markdown` / `--from ai-team` commands
+   - Migration mapping table: `.squad/` files → builder functions
+   - Preserved files: decisions.md, history.md, orchestration logs (append-only)
+   - Revert path documented
+
+4. **Added `defineSkill()` builder reference** (lines 460–492)
+   - Full field documentation (name, description, domain, confidence, source, content, tools)
+   - Usage example with git-workflow pattern
+   - Integration with `squad build`
+
+5. **Updated `docs/reference/config.md`** to use new builder syntax
+   - Replaced old `defineConfig()` pattern with `defineSquad()` builders
+   - Example shows `defineTeam()`, `defineAgent()`, `defineRouting()` usage
+   - Clarified markdown-first default vs. SDK opt-in
+
+**Tone ceiling maintained throughout:**
+- No hype or hand-waving
+- All claims substantiated by builder type signatures and CLI behavior
+- "Start with markdown" guidance is lead positioning (not buried)
+- Future-tense framing: commands documented as designed
+
+**Key messaging decision:** Markdown is the default, SDK is the upgrade path. This aligns with Brady's CLI-first strategy and reduces user surprise (no unexpected build step).
+
+
+
+
+

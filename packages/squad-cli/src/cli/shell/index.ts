@@ -137,6 +137,22 @@ export async function withGhostRetry(
 }
 
 export async function runShell(): Promise<void> {
+  // First-run check: before requiring a TTY, detect if no .squad/ exists locally.
+  // In that case, output a plain-text welcome and init hint so non-interactive
+  // contexts (pipes, tests, CI) see useful guidance rather than a TTY error.
+  const cwd = process.cwd();
+  const localSquad = resolveSquad(cwd);
+  const globalSquadDir = join(resolveGlobalSquadPath(), '.squad');
+  const hasAnySquad = !!localSquad || existsSync(globalSquadDir);
+
+  if (!hasAnySquad && !process.stdin.isTTY) {
+    console.log('Welcome to Squad\n');
+    console.log('Get started by initializing your squad:');
+    console.log('  squad init "describe what you want to build"\n');
+    console.log('Or run: squad help');
+    process.exit(0);
+  }
+
   // Ink requires a TTY for raw mode input — bail out early when piped (#576)
   if (!process.stdin.isTTY) {
     console.error('✗ Squad shell requires an interactive terminal (TTY).');
@@ -1021,6 +1037,13 @@ export async function runShell(): Promise<void> {
     // Guard: require a Squad team before processing work requests
     const teamFile = join(teamRoot, '.squad', 'team.md');
     if (!existsSync(teamFile)) {
+      // When skipCastConfirmation is explicitly set (true or false), the message
+      // was routed from an /init flow (inline or follow-up), so bypass the guard
+      // and go straight to Init Mode casting even without a team.md.
+      if (parsed.skipCastConfirmation !== undefined) {
+        await handleInitCast(parsed, parsed.skipCastConfirmation);
+        return;
+      }
       shellApi?.addMessage({
         role: 'system',
         content: '\u26A0 No Squad team found. Run /init to create your team first.',
@@ -1198,7 +1221,8 @@ export async function runShell(): Promise<void> {
 
   // Consult mode reminder: prompt user to extract learnings before exiting
   try {
-    const squadDir = pathResolve(process.cwd(), '.squad');
+    // Use the resolved teamRoot instead of cwd so this works from subdirectories (#207)
+    const squadDir = join(teamRoot, '.squad');
     const configPath = join(squadDir, 'config.json');
     if (existsSync(configPath)) {
       const raw = readFileSync(configPath, 'utf8');

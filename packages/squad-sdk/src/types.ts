@@ -57,3 +57,27 @@ export type { SquadCustomAgentConfig } from './adapter/types.js';
 export type { SquadEntry } from './multi-squad.js';
 export type { MultiSquadConfig } from './multi-squad.js';
 export type { SquadInfo } from './multi-squad.js';
+
+// --- Workstream types (streams/types.ts) ---
+export type { WorkstreamDefinition } from './streams/types.js';
+export type { WorkstreamConfig } from './streams/types.js';
+export type { ResolvedWorkstream } from './streams/types.js';
+/** @deprecated aliases */
+export type { StreamDefinition } from './streams/types.js';
+export type { StreamConfig } from './streams/types.js';
+export type { ResolvedStream } from './streams/types.js';
+
+// --- Builder types (builders/types.ts) ---
+export type { AgentRef } from './builders/types.js';
+export type { ScheduleExpression } from './builders/types.js';
+export type { BuilderModelId } from './builders/types.js';
+export type { TeamDefinition } from './builders/types.js';
+export type { AgentCapability } from './builders/types.js';
+export type { AgentDefinition } from './builders/types.js';
+export type { RoutingRule as BuilderRoutingRule } from './builders/types.js';
+export type { RoutingDefinition } from './builders/types.js';
+export type { CeremonyDefinition } from './builders/types.js';
+export type { HooksDefinition } from './builders/types.js';
+export type { CastingDefinition } from './builders/types.js';
+export type { TelemetryDefinition } from './builders/types.js';
+export type { SquadSDKConfig } from './builders/types.js';

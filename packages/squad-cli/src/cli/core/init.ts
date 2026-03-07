@@ -75,6 +75,10 @@ export interface RunInitOptions {
   prompt?: string;
   /** If true, disable extraction from consult sessions (read-only consultations) */
   extractionDisabled?: boolean;
+  /** If false, skip GitHub workflow installation (default: true) */
+  includeWorkflows?: boolean;
+  /** If true, generate squad.config.ts with SDK builder syntax (default: false) */
+  sdk?: boolean;
 }
 
 /**
@@ -109,9 +113,9 @@ export async function runInit(dest: string, options: RunInitOptions = {}): Promi
         displayName: 'Scribe',
       }
     ],
-    configFormat: 'typescript',
+    configFormat: options.sdk ? 'sdk' : 'markdown',
     skipExisting: true,
-    includeWorkflows: true,
+    includeWorkflows: options.includeWorkflows !== false,
     includeTemplates: true,
     includeMcpConfig: true,
     projectType: projectType as any,

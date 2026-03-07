@@ -1,9 +1,30 @@
+📌 Team update (2026-03-07T17:35:45Z): Issue #249 — squad init --sdk flag implemented. Default init now markdown-only (no config file). Optional --sdk generates typed squad.config.ts with defineSquad() builders. Backward compatible. Coordinates with #250 migrate and #255 skills. — decided by Fenster
+
+📌 Team update (2026-03-07T16:25:00Z): Actions → CLI migration strategy finalized. 4-agent consensus: migrate 5 squad-specific workflows (12 min/mo) to CLI commands. Keep 9 CI/release workflows (215 min/mo, load-bearing). Zero-risk migration. v0.8.22 quick wins identified: squad labels sync + squad labels enforce. Phased rollout: v0.8.22 (deprecation + CLI) → v0.9.0 (remove workflows) → v0.9.x (opt-in automation). Brady's portability insight captured: CLI-first means Squad runs anywhere (containers, Codespaces). Customer communication strategy: "Zero surprise automation" as competitive differentiator. Decisions merged. — coordinated by Scribe
+
+📌 Team update (2026-03-07T05:56:56Z): Test suite assessment complete — 8 CLI commands untested (high-risk for next-wave bugs #237, #236). 30+ error-handling tests missing. Recommend 12-14 hrs QA work before feature wave. Adopted CLI wiring regression test pattern from PR #238 permanently. — decided by Hockney
+📌 Team update (2026-03-05T22:46:00Z): Azure Function samples require \main\ field and build step — decided by Fenster
 # Project Context
 
 - **Owner:** Brady
 - **Project:** squad-sdk — the programmable multi-agent runtime for GitHub Copilot (v1 replatform)
 - **Stack:** TypeScript (strict mode, ESM-only), Node.js ≥20, @github/copilot-sdk, Vitest, esbuild
 - **Created:** 2026-02-21
+
+---
+
+## 📌 Phase 1 — 2026-03-05T21:37:09Z
+
+**Fenster's Phase 1 SDK-First Work Complete.** Built `squad build` CLI command (Phase 1 scope: validation-only, not generation). Command supports `--check`, `--dry-run`, `--watch`. Works with `SquadSDKConfig` from builders. Generated files stamped with HTML headers. Wired into cli-entry.ts.
+
+**Team Context:**
+- **Keaton:** Phase 1 scoping — markdown as source of truth, TS as typed facade. Use runtime/config.ts types.
+- **Edie:** Built builders. 8 functions with runtime validation, zero new deps.
+- **Hockney:** 60 tests (36 builders, 24 CLI). All passing. Stubs documented.
+- **Kujan:** OTel readiness ✅ — all 8 modules compile. Phase 3 unblocked.
+- **Verbal:** Coordinator updated for SDK mode detection.
+
+All Phase 1 decisions merged to decisions.md. Ready for Phase 2-4.
 
 ---
 
@@ -423,6 +444,8 @@
 
 ## Learnings
 
+📌 Team update (2026-03-05T01:21:00Z): Worktree-based parallelism and multi-repo support now documented in git-workflow skill — agents can now spawn in parallel across multiple worktrees for same-repo concurrent issues, or separate clones for cross-repo downstream work — decided by Kobayashi
+
 - Multi-session management pattern: create all sessions upfront, store sessionIds in player state, resume per request
 - Context injection for adaptive agents: The Learner gets opponent history, others get static prompts
 - Parallel LLM calls via Promise.all() for concurrent player moves — reduces total latency
@@ -569,3 +592,298 @@ The CLI couldn't run because `packages/squad-sdk/src/index.ts` was missing re-ex
 
 
 📌 Team update (2026-03-04T17:52:00Z): Migration docs file-safety guidance added — doctor command now live in CLI (fixes #188) — decided by Keaton, implemented by McManus
+
+### 2026-03-05: Branching model implementation
+- Created git-workflow skill file for 3-branch model (dev/insiders/main)
+- Updated Kobayashi charter with branching rules
+- Updated team.md with @copilot git workflow instructions
+- Key: Skill file is the single source of truth — coordinator loads it and injects into spawn prompts
+- Decision: `release` branch dropped per Keaton's recommendation (YAGNI pre-1.0)
+
+---
+
+### 2026-03-05: Workflow Filter Implementation Review (PR #201)
+
+**Context:** Issue #201 changed `packages/squad-sdk/src/config/init.ts` to filter workflow installation to only Squad-framework workflows (4 files) instead of copying all workflows from templates/.
+
+**Changes reviewed:**
+- Added `FRAMEWORK_WORKFLOWS` constant (4 filenames: squad-heartbeat.yml, squad-issue-assign.yml, squad-triage.yml, sync-squad-labels.yml)
+- Renamed `workflowFiles` → `allWorkflowFiles` in read step
+- Filtered with `allWorkflowFiles.filter(f => FRAMEWORK_WORKFLOWS.includes(f))`
+- Tests updated in `test/workflows.test.js` to validate framework workflows installed, CI/CD workflows excluded
+
+**Implementation assessment:**
+✅ Core logic sound — read all `.yml` → filter to framework → copy filtered list  
+✅ Variable rename clean and semantically correct throughout loop  
+✅ `Array.includes()` appropriate for 4-item array (no perf concern, matches existing patterns at lines 744, 768)  
+✅ Edge cases handled gracefully:
+  - Missing template files: silently skipped (no error, operates on disk-present files)
+  - `skipExisting: true` applies correctly (filter happens before copy loop)
+  - CLI layer has no bypass mechanism (filtering is SDK-internal, correct separation)
+✅ Constant placement discoverable (module-scope, well-commented, before `initSquad()`)  
+✅ No other callers to update (workflow logic self-contained in `includeWorkflows` block)  
+✅ Tests updated correctly (validates framework installed, CI/CD excluded)
+
+**Verdict:** APPROVED
+
+**Minor observation:** Missing template file handling is acceptable but could be improved — if a file in `FRAMEWORK_WORKFLOWS` doesn't exist in templates/, it's silently skipped with no warning. Not a blocker, but future enhancement could log warning.
+
+## Learnings
+
+- For small constant arrays (≤5 items), `Array.includes()` is idiomatic and performs equivalently to `Set.has()` — prefer readability over premature optimization
+- When filtering file lists before copy loops, operate on the disk-present files first (`readdirSync` → filter extensions → filter whitelist) — this makes missing template files self-healing (no error thrown)
+- Workflow installation in init.ts is self-contained in the `includeWorkflows` block — SDK layer controls filtering, CLI layer only gates the feature on/off
+
+📌 Team update (2026-03-05T10-35-50Z): PR #201 workflow filter approved by all reviewers — framework/scaffolding distinction, implementation pattern validated, test coverage noted — decided by Keaton, Fenster, Hockney, Edie
+
+## 2026-03-05: PR #201 Implementation Review
+
+**Task:** PR readiness review for issue #201 workflow filtering implementation.
+
+**Implementation verified:**
+
+✅ **FRAMEWORK_WORKFLOWS constant** (lines 446-451 in init.ts):
+  - Correctly placed at module scope, well-commented
+  - Contains exactly 4 framework workflows: heartbeat, issue-assign, triage, sync-labels
+  - Declaration before `initSquad()` function — discoverable and maintainable
+
+✅ **Filter logic** (lines 817-818):
+  - Two-stage filter: `allWorkflowFiles` (all .yml) → `workflowFiles` (framework only)
+  - Variable naming is clear and intentional
+  - Pattern: `allWorkflowFiles.filter(f => FRAMEWORK_WORKFLOWS.includes(f))`
+
+✅ **Edge case handling**:
+  - If FRAMEWORK_WORKFLOWS file doesn't exist in templates/: silently skipped (operates on intersection)
+  - This is acceptable — missing templates won't crash init, just fewer workflows installed
+  - Could log warning in future enhancement, but not a blocker
+
+✅ **includeWorkflows: true** confirmed in CLI init.ts (line 114) — no bypass paths
+
+✅ **Upgrade gap acknowledged**:
+  - templates.ts shows all 12 workflows in manifest
+  - Upgrade command copies all 12 (lines 413-420 in upgrade.ts)
+  - Acceptable to leave for follow-up — existing projects already have workflows
+
+✅ **No other copy sites** — grep confirms workflow copying only in init.ts (SDK) and upgrade.ts (CLI)
+
+**Verdict:** Implementation is solid. No concerns.
+
+## 2026-03-06: squad build CLI command (Issue #194)
+
+**Task:** Implement `squad build` — the bridge that compiles TypeScript squad definitions (SquadSDKConfig) into .squad/ markdown.
+
+**Implementation:**
+- Created `packages/squad-cli/src/cli/commands/build.ts`
+- Config loading: discovers `squad/index.ts` > `squad.config.ts` > `squad.config.js` via dynamic import
+- Generates: team.md, routing.md, agents/*/charter.md, ceremonies.md
+- Stamps all generated files with `<!-- generated by squad build — do not edit -->` header
+- Protected files (decisions.md, history.md, orchestration-log/) are NEVER touched
+- Flags: --check (drift detection, exit 1 on mismatch), --dry-run (preview), --watch (stub for now)
+- Wired into cli-entry.ts alongside existing commands
+- Uses SquadSDKConfig from builders/types.ts (not the runtime SquadConfig)
+
+## Learnings
+
+- Two SquadConfig types exist: `config/schema.ts` (simple, has `team/agents/ceremonies`) and `runtime/config.ts` (full runtime, has `models.defaultModel`). The builders `SquadSDKConfig` from `builders/types.ts` is the correct type for SDK-first mode — it has `TeamDefinition`, `AgentDefinition`, `RoutingDefinition`, `CeremonyDefinition`.
+- Config loading pattern: the existing `loadConfig()` in `runtime/config.ts` accepts `module.default || module.squadConfig`. Build command also accepts `module.config` for ergonomic default exports.
+- Generated markdown format should match the test expectations in `test/build-command.test.ts` which has its own stub generators — when replacing stubs with real imports, align on content structure.
+
+- Azure Functions v4 model for Node.js uses pp.http() registration with HttpRequest/HttpResponseInit types from @azure/functions. When running outside the Functions runtime (e.g., 
+px tsx), it logs a test-mode warning but still validates config — useful for dry-run testing.
+- Sample pattern: existing samples use ile:../../packages/squad-sdk for local SDK dependency, 	ype: module in package.json, and NodeNext module resolution. New samples should follow this exact pattern.
+- The SDK builders (defineSquad, defineTeam, defineAgent, defineRouting) are imported from @bradygaster/squad-sdk/builders — the subpath export, not the barrel. This is the SDK-First pattern for programmatic config.
+
+📌 Team update (2026-03-05T22-10-00Z): Azure Function sample implementation complete. samples/azure-function-squad/ (7 files, ~200 LOC). Dry-run flag added for validation. Foundation for future serverless variants. — decided by Fenster
+
+## Learnings
+
+- Azure Functions v4 Node.js programming model **requires** `"main"` in package.json to point to the compiled JS file containing `app.http()` registration. Without it, the runtime silently fails to discover functions → "No job functions found" error.
+- For TypeScript Azure Functions: always add a `build` step (`tsc`) and ensure `main` points to `dist/` output (e.g., `"main": "dist/functions/squad-prompt.js"`). The `start` script should chain build + func start: `npm run build && func start`.
+- A `prestart:func` npm script ensures `func start` always gets fresh compiled JS, preventing stale-build confusion.
+
+📌 Team update (2026-03-06): Fixed Azure Function sample — added missing `main` field to package.json, updated `start` script to build-then-run, added build documentation to README. Root cause was runtime couldn't discover function registration without `main` pointing to compiled output. — decided by Fenster
+
+📌 Team update (2026-03-06): Fixed Azure Function sample — added missing `main` field to package.json, updated `start` script to build-then-run, added build documentation to README. Root cause was runtime couldn't discover function registration without `main` pointing to compiled output. — decided by Fenster
+
+## Issue #228 — Squad Guard vs Scribe Runtime State
+
+**Problem:** Scribe's commit step (`git add .squad/`) stages runtime state files (orchestration-log/, log/, decisions/inbox/, sessions/) on feature branches. When PRs target main, the squad-main-guard workflow catches them — causing CI failures that users didn't cause.
+
+**Fix (defense in depth):**
+1. Updated Scribe commit instruction in both `squad.agent.md` files to `git reset HEAD` on forbidden paths after `git add .squad/`
+2. Added `.squad/decisions/inbox/` and `.squad/sessions/` to `.gitignore` entries in `init.ts` (orchestration-log/ and log/ were already covered)
+3. Updated init test to verify all four runtime state paths
+
+## Learnings
+
+- The squad-main-guard blocks ALL `.squad/` paths from protected branches — this is correct. Runtime state must be prevented at the commit stage, not the guard stage.
+- `.gitignore` is first-line defense (prevents staging new files) but doesn't help for already-tracked files. The `git reset HEAD` in the Scribe instruction is the belt-and-suspenders fix.
+- Four runtime state paths to always exclude: `orchestration-log/`, `log/`, `decisions/inbox/`, `sessions/`
+### 2026-03-06: Fix version stamp overwrite during upgrade (#195)
+**Requested by:** Brady (via issue #195, reported by @dnoriegagoodwin)
+**PR:** #212
+
+Root cause: `TEMPLATE_MANIFEST` loop in `upgrade.ts` includes `squad.agent.md` with `overwriteOnUpgrade: true`. The loop runs *after* `stampVersion()` writes the correct version, overwriting the stamped file with the raw template (`0.0.0-source`). Result: version never persists, `isAlreadyCurrent` never passes, all 30+ files re-copied on every upgrade.
+
+**Fix (1 line):** Added `&& f.source !== 'squad.agent.md'` to the manifest filter. `squad.agent.md` is already handled explicitly with copy + `stampVersion()` earlier in the function.
+
+**Test added:** Regression test verifying stamp survives the manifest loop and second upgrade reports "already current".
+
+## Learnings
+- When a file needs post-copy transformation (like `stampVersion`), it must be excluded from bulk-copy loops that would overwrite the transformation. Any manifest with `overwriteOnUpgrade: true` that includes a file handled by explicit copy+transform is a race condition.
+- The beta `index.js` doesn't use `TEMPLATE_MANIFEST` — it copies files individually with inline `stampVersion()` calls, so this bug only exists in the TypeScript CLI path.
+
+---
+
+## Phase 3 Runtime Fixes (2026-03-06)
+
+**Branch:** squad/phase3-runtime
+**Issues:** #214, #207, #206, #193
+
+Fixed 4 runtime bugs:
+
+1. **#214 node:sqlite**: Added pre-flight check in cli-entry.ts before shell launch. The @github/copilot SDK lazily imports node:sqlite for session storage — Node.js <22.5.0 crashes with opaque ERR_UNKNOWN_BUILTIN_MODULE. Now surfaces a clear warning instead.
+
+2. **#207 Squad not found from subdirectory**: Fixed nap command double-pathing (.squad/.squad) where resolveSquad() return was re-joined with '.squad'. Fixed consult mode exit check using hardcoded process.cwd() instead of resolved teamRoot.
+
+3. **#206 Terminal blink/flicker**: Reduced animation intervals — spinner 80ms→120ms, pulsing dot 300ms→500ms, elapsed timer 200ms→1000ms. Removed \x1b[3J (clear scrollback) from startup screen clear to prevent scroll position reset.
+
+4. **#193 Ceremonies file too large**: Added size threshold (15KB) to build.ts. When ceremonies.md exceeds the limit, generates a compact dispatch table + individual .squad/skills/ceremony-{name}/SKILL.md files instead of a monolithic file.
+
+## Learnings
+- The @github/copilot SDK bundles node:sqlite imports in its minified output. Cannot fix at source — pre-flight checks with clear messages are the right pattern.
+- resolveSquad() returns the .squad/ directory path itself, not the parent. Callers must not re-join with '.squad'.
+- Ink re-renders on every React state change. Multiple high-frequency animation timers compound into excessive redraws. Keep intervals ≥120ms for animations, ≥1000ms for counters.
+## Phase 3 CLI Config Fixes — 2026-03-07
+
+**PR #233 (squad/phase3-cli-config → dev)**
+
+Fixed 4 bugs in a single branch:
+
+1. **#226 — aspire not wired:** Added routing block + help text for squad aspire in cli-entry.ts. The command existed (175 lines) but was never connected to the router.
+2. **#229 — doctor not exported:** CLI routing was present but unDoctor/doctorCommand were not exported from the barrel. Added exports to cli/index.ts for SDK consumers.
+3. **#201 — workflows opt-in:** FRAMEWORK_WORKFLOWS filter was already in place. Added --no-workflows flag to squad init and threaded includeWorkflows through RunInitOptions.
+4. **#202 — config.json gitignore:** Both link.ts and init-remote.ts now auto-append .squad/config.json to .gitignore after writing config, using the same pattern as orchestration-log entries.
+
+## Learnings
+- CLI command wiring requires both a routing block in cli-entry.ts AND help text in the help section. Easy to miss one.
+- The .gitignore append pattern (check exists, check includes, append with header comment) is reusable across init, link, and init-remote.
+- FRAMEWORK_WORKFLOWS already filters init to 4 safe workflows; the opt-in flag is about user control, not safety.
+- `process.env.NODE_NO_WARNINGS = '1'` set at runtime does NOT suppress Node.js ExperimentalWarning -- the env var is only checked at process start. Use a `process.emit` override to filter warnings at runtime.
+- CI failures in --version tests were caused by `node:sqlite` ExperimentalWarning leaking into terminal output (3 lines instead of 1). Fixed with process.emit hook in cli-entry.ts.
+### Model Config Pipeline - Issue #223 (2026-03-08)
+
+- The charter generation pipeline had a format mismatch: build.ts emitted **Model:** value (flat) but charter-compiler.ts parsed ## Model + **Preferred:** value (structured). Model preferences were silently lost in the round-trip.
+- Fix: AgentDefinition.model now accepts string or ModelPreference (backwards compatible). Build output uses proper ## Model section with Preferred, Rationale, Fallback lines.
+- Added DefaultsDefinition and defineDefaults() for squad-level model defaults. Agents without explicit model inherit from config.defaults.model.
+- The assertModelPreference() validator pattern (accept string or object, normalize internally) is reusable for any field that needs a simple-or-rich config shape.
+- Charter-compiler now extracts modelRationale and modelFallback in addition to modelPreference.
+- PR #245, branch squad/223-model-config.
+
+### Installation Resilience — Issue #247 (2026-03-07)
+
+- Created runtime/otel-api.ts: resilient wrapper that loads @opentelemetry/api via createRequire() with full no-op fallbacks (Span, Tracer, Meter, SpanStatusCode, diag). Zero-crash guarantee when the package is absent.
+- Refactored runtime/otel.ts: moved @opentelemetry/sdk-node and exporter imports from top-level to lazy-load inside ensureSDK(). Optional packages that crash at import time if not installed must always be lazy-loaded.
+- Pattern: for optional dependencies in ESM packages, use createRequire(import.meta.url) for synchronous lazy loading inside functions, not top-level import statements.
+- vscode-jsonrpc ESM issue: the package has no exports map, so subpath import 'vscode-jsonrpc/node' fails under strict ESM resolution in Node 24+/25+. This is upstream in @github/copilot-sdk. Adding vscode-jsonrpc as a direct dep improves hoisting but doesn't fix the import path.
+- The "*" version specifier in squad-cli -> squad-sdk dep can cause transitive dependency resolution issues in npx temp installs. Making deps optional with runtime fallbacks is more robust than relying on proper hoisting.
+
+## Learnings
+- Any dependency that is functionally optional (telemetry, observability) must be loaded lazily with try/catch, even if listed in dependencies. Users installing via npx have unpredictable dependency trees.
+- The createRequire() pattern for lazy sync loading is already established in otel.ts (for package.json resolution). Reuse it for all optional deps.
+- When 9+ files import from the same optional package, a centralized wrapper module (otel-api.ts) is the right pattern. Single point of fallback logic, consumers don't need to know about optionality.
+
+## 2026-03-07: CLI Feasibility Assessment — Actions → CLI Commands (Issue request from Brady)
+
+**Task:** Analyze feasibility of migrating squad-specific GitHub Actions workflows to CLI commands. Brady wants to move from workflow-heavy automation to CLI-first tooling.
+
+**Analysis scope:** 5 workflows (sync-squad-labels.yml, squad-triage.yml, squad-issue-assign.yml, squad-heartbeat.yml, squad-label-enforce.yml).
+
+**Key findings:**
+
+1. **squad watch already exists** — It's the local equivalent of heartbeat + triage workflows. Triages issues, monitors PRs, uses shared `@bradygaster/squad-sdk/ralph/triage` logic. Missing: comment posting (4-6 hour gap).
+
+2. **Quick wins (4-7 hours total, v0.8.22):**
+   - `squad labels sync` — 2-3 hours. Reuses `parseRoster()`, just needs `gh label create/edit` loop.
+   - `squad labels enforce` — 2-4 hours. Pure label manipulation logic + `gh` CLI calls.
+
+3. **Medium effort (4-6 hours, v0.8.23):**
+   - Enhance `squad watch` with comment posting — add `gh issue comment` wrapper to `gh-cli.ts`, call from triage cycle.
+
+4. **Do NOT migrate:**
+   - Copilot auto-assign (issue-assign.yml + heartbeat copilot step) — Requires PAT + `agent_assignment` API not exposed in `gh` CLI. Violates zero-dependency goal. Keep as workflow-only feature.
+
+5. **Infrastructure already exists:**
+   - `gh-cli.ts` — thin wrapper around `gh` CLI (ghIssueList, ghIssueEdit, ghPrList, ghAvailable, ghAuthenticated)
+   - `@bradygaster/squad-sdk/ralph/triage` — shared triage logic used by both watch.ts and ralph-triage.js (workflow script)
+   - `watch.ts` — 356 lines, full triage + PR monitoring
+
+**Recommendation:** Ship labels commands (sync + enforce) in v0.8.22 (4-7 hours). Enhance watch with comments in v0.8.23 (4-6 hours). Document copilot auto-assign as workflow-only (PAT-dependent).
+
+**Written to:** `.squad/decisions/inbox/fenster-cli-feasibility.md`
+
+## Learnings
+
+- `squad watch` is already the local heartbeat — it implements 80% of heartbeat.yml + triage.yml functionality (triage logic, PR monitoring, polling loop). Only missing comment posting.
+- The copilot-swe-agent[bot] assignment API (`agent_assignment` field in POST /repos/{owner}/{repo}/issues/{issue_number}/assignees`) is GitHub-specific and not exposed in `gh` CLI. Requires PAT + Octokit or raw HTTPS. CLI commands should not manage PATs — that's a workflow concern with secure secret storage.
+- Label sync/enforce are low-hanging fruit — no parsing complexity (roster already implemented), idempotent operations, thin wrappers around `gh` CLI.
+- The ralph-triage.js script in workflows is a CJS port of the SDK's triage.ts — both use the same logic. This enables parity between Actions (ralph-triage.js) and CLI (watch.ts importing sdk/ralph/triage). Any triage logic changes must sync to both.
+- Quick wins for CLI migration: look for workflows that don't need PATs or bot-specific APIs. Label operations, triage decisions, PR state checks — all available via `gh` CLI.
+
+---
+
+## Issue #249: \squad init --sdk\ Flag Implementation (2026-03-07)
+
+**Requested by:** Brady. Add \--sdk\ flag to \squad init\ to optionally generate SDK builder syntax config.
+
+**Implementation:**
+- Modified 3 files:
+  1. \packages/squad-cli/src/cli-entry.ts\: Added \--sdk\ flag parsing, updated help text
+  2. \packages/squad-cli/src/cli/core/init.ts\: Added \sdk?: boolean\ to \RunInitOptions\, passed through as \configFormat\
+  3. \packages/squad-sdk/src/config/init.ts\: Extended \configFormat\ type to \'typescript' | 'json' | 'sdk' | 'markdown'\, added \generateSDKBuilderConfig()\, updated config generation logic
+
+**Behavior:**
+- **Default** (\squad init\): \configFormat: 'markdown'\ — NO config file generated, only .squad/ directory structure
+- **With --sdk** (\squad init --sdk\): \configFormat: 'sdk'\ — generates squad.config.ts using \defineSquad()\, \defineTeam()\, \defineAgent()\ builders from \@bradygaster/squad-sdk\
+- **Backward compatible**: \'typescript'\ and \'json'\ formats still work exactly as before
+
+**SDK Builder Format Generated:**
+\\\	ypescript
+import { defineSquad, defineTeam, defineAgent } from '@bradygaster/squad-sdk';
+
+const scribe = defineAgent({
+  name: 'scribe',
+  role: 'scribe',
+  description: 'Scribe',
+  status: 'active',
+});
+
+export default defineSquad({
+  version: '1.0.0',
+  team: defineTeam({
+    name: 'project-name',
+    members: ['scribe'],
+  }),
+  agents: [scribe],
+});
+\\\
+
+**Testing:**
+- Manual tests passed: \squad init\ creates no config, \squad init --sdk\ creates SDK builder format
+- \
+pm run build\: clean (TypeScript 0 errors)
+- \
+pm test\: 3768 tests passed (2 pre-existing failures unrelated to changes)
+- Init tests specifically passed
+
+## Learnings
+
+- **Init flag pattern**: Parse flags with \rgs.includes('--flag')\ in cli-entry.ts, pass through to command handlers as boolean options
+- **Config generation branching**: When adding new config formats, use discriminated logic: check format type, skip file generation entirely for markdown-only, choose generator function for others
+- **SDK builder format**: Uses the NEW \defineSquad()\ / \defineTeam()\ / \defineAgent()\ syntax from the project's own squad.config.ts, NOT the old \SquadConfig\ type
+- **Backward compatibility preservation**: Old formats (\'typescript'\, \'json'\) must remain unchanged — extend type union, add new branches, never modify existing behavior
+- **configPath handling**: When no config file is generated (markdown mode), set \configPath = ''\ in result object to avoid confusion
+- **Help text location**: cli-entry.ts line ~97 for init command help, update with new flags in the format \Flags: --sdk (description)\
+- **Key files for init flow**: cli-entry.ts (routing) → cli/core/init.ts (options assembly) → squad-sdk/config/init.ts (file generation)
+- **Migration context**: This is NOT about migrate.ts (Edie's domain) — it's about NEW squad creation, not converting existing squads
+

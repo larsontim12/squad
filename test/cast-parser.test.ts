@@ -1,10 +1,15 @@
 /**
- * Tests for parseCastResponse — the REPL casting parser.
- * Ensures robust parsing of various model response formats.
+ * Tests for parseCastResponse and createTeam — the REPL casting engine.
+ * Ensures robust parsing of various model response formats and correct
+ * file scaffolding for both fresh and pre-initialised projects.
  */
 
-import { describe, it, expect } from 'vitest';
-import { parseCastResponse } from '../packages/squad-cli/src/cli/core/cast.js';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { mkdtemp, rm, readFile, writeFile, mkdir } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { parseCastResponse, createTeam, type CastProposal } from '../packages/squad-cli/src/cli/core/cast.js';
 
 describe('parseCastResponse', () => {
   it('parses strict INIT_TEAM format', () => {
@@ -158,5 +163,124 @@ PROJECT: Something`;
     if (result) {
       expect(result.members.length).toBeGreaterThan(0);
     }
+  });
+});
+
+// ── createTeam ─────────────────────────────────────────────────────
+
+const minimalProposal: CastProposal = {
+  universe: 'Alien',
+  projectDescription: 'A React and Node.js web application',
+  members: [
+    { name: 'Ripley', role: 'Lead',         scope: 'Architecture, code review', emoji: '🏗️' },
+    { name: 'Dallas', role: 'Frontend Dev', scope: 'React, UI, components',      emoji: '⚛️' },
+    { name: 'Kane',   role: 'Backend Dev',  scope: 'Node.js, APIs, database',    emoji: '🔧' },
+  ],
+};
+
+describe('createTeam', () => {
+  let tempDir: string;
+
+  beforeEach(async () => {
+    tempDir = await mkdtemp(join(tmpdir(), 'squad-test-'));
+  });
+
+  afterEach(async () => {
+    await rm(tempDir, { recursive: true, force: true });
+  });
+
+  describe('fresh project — no .squad/ directory', () => {
+    it('creates team.md with ## Members section and data rows', async () => {
+      await createTeam(tempDir, minimalProposal);
+
+      const teamPath = join(tempDir, '.squad', 'team.md');
+      expect(existsSync(teamPath)).toBe(true);
+
+      const content = await readFile(teamPath, 'utf-8');
+      expect(content).toContain('## Members');
+      expect(content).toContain('| Ripley |');
+      expect(content).toContain('| Dallas |');
+      expect(content).toContain('| Kane |');
+    });
+
+    it('creates routing.md from scratch', async () => {
+      await createTeam(tempDir, minimalProposal);
+
+      const routingPath = join(tempDir, '.squad', 'routing.md');
+      expect(existsSync(routingPath)).toBe(true);
+
+      const content = await readFile(routingPath, 'utf-8');
+      expect(content).toContain('# Squad Routing');
+    });
+
+    it('includes project description in team.md header', async () => {
+      await createTeam(tempDir, minimalProposal);
+
+      const content = await readFile(join(tempDir, '.squad', 'team.md'), 'utf-8');
+      expect(content).toContain('A React and Node.js web application');
+    });
+
+    it('team.md passes hasRosterEntries check (coordinator can read it)', async () => {
+      // Import hasRosterEntries to verify the coordinator will recognise the team
+      const { hasRosterEntries } = await import('../packages/squad-cli/src/cli/shell/coordinator.js');
+
+      await createTeam(tempDir, minimalProposal);
+      const content = await readFile(join(tempDir, '.squad', 'team.md'), 'utf-8');
+      expect(hasRosterEntries(content)).toBe(true);
+    });
+
+    it('adds built-in Scribe and Ralph when not in proposal', async () => {
+      const result = await createTeam(tempDir, minimalProposal);
+      expect(result.membersCreated).toContain('Scribe');
+      expect(result.membersCreated).toContain('Ralph');
+    });
+
+    it('creates agent charter and history files for each member', async () => {
+      const result = await createTeam(tempDir, minimalProposal);
+      for (const name of result.membersCreated) {
+        const base = join(tempDir, '.squad', 'agents', name.toLowerCase());
+        expect(existsSync(join(base, 'charter.md'))).toBe(true);
+        expect(existsSync(join(base, 'history.md'))).toBe(true);
+      }
+    });
+  });
+
+  describe('existing project — .squad/ with empty team.md', () => {
+    beforeEach(async () => {
+      const squadDir = join(tempDir, '.squad');
+      await mkdir(squadDir, { recursive: true });
+      await writeFile(join(squadDir, 'team.md'), [
+        '# Squad Team',
+        '',
+        '> Pre-existing project',
+        '',
+        '## Members',
+        '',
+        '| Name | Role | Charter | Status |',
+        '|------|------|---------|--------|',
+        '',
+        '## Project Context',
+        '',
+        '- **Project:** Pre-existing',
+        '',
+      ].join('\n'));
+    });
+
+    it('updates the Members section without clobbering surrounding content', async () => {
+      await createTeam(tempDir, minimalProposal);
+
+      const content = await readFile(join(tempDir, '.squad', 'team.md'), 'utf-8');
+      expect(content).toContain('Pre-existing project');
+      expect(content).toContain('## Project Context');
+      expect(content).toContain('| Ripley |');
+    });
+
+    it('team.md passes hasRosterEntries after update', async () => {
+      const { hasRosterEntries } = await import('../packages/squad-cli/src/cli/shell/coordinator.js');
+
+      await createTeam(tempDir, minimalProposal);
+      const content = await readFile(join(tempDir, '.squad', 'team.md'), 'utf-8');
+      expect(hasRosterEntries(content)).toBe(true);
+    });
   });
 });

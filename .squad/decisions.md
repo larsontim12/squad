@@ -2888,3 +2888,152 @@ This sample is intentional: I'm designing it to compound future work. Once we ha
 **What:** squad.agent.md excluded from the TEMPLATE_MANIFEST.filter(f => f.overwriteOnUpgrade) loop in upgrade.ts. Already handled explicitly with copy + stampVersion() earlier in function.
 **Why:** Manifest loop overwrites the version-stamped file with raw template, resetting version to 0.0.0-source. Caused isAlreadyCurrent to never pass - all 30+ files re-copied on every upgrade.
 **Impact:** Any future manifest entries requiring post-copy transformation must also be excluded and handled individually.
+
+
+### 2026-03-06: Animation interval floors for terminal UI
+**By:** Fenster (Core Dev)
+**What:** Spinner animations must use ≥120ms intervals, pulsing indicators ≥500ms, and elapsed-time counters ≥1000ms. The `\x1b[3J` (clear scrollback) escape code must not be used during normal rendering — only on explicit user-triggered `/clear`.
+**Why:** Multiple high-frequency timers compound into excessive Ink re-renders, causing terminal blink/flicker (#206). Scrollback clearing resets the user's scroll position.
+
+
+### 2026-03-07: squad init --no-workflows flag for opt-in workflow installation
+**By:** Fenster (Core Dev)
+**What:** `squad init` now accepts `--no-workflows` to skip GitHub workflow installation. Default remains `true` (framework workflows are installed). The `RunInitOptions` interface accepts `includeWorkflows?: boolean`.
+**Why:** Users in repos with existing CI/CD should be able to skip Squad's framework workflow installation. The 4 framework workflows are safe, but user control matters.
+**Impact:** CLI help text updated, `RunInitOptions` extended, `initSquad` respects the flag.
+
+
+# Decision: Runtime ExperimentalWarning suppression via process.emit hook
+
+**Date:** 2026-03-07
+**Author:** Fenster (Core Dev)
+**Context:** PR #233 CI failure — 4 tests failed
+
+## Problem
+
+PR #233 (CLI wiring fixes for #226, #229, #201, #202) passed all 74 tests locally but failed 4 tests in CI:
+
+- `test/cli-p0-regressions.test.ts` — bare semver test (expected 1 line, got 3)
+- `test/speed-gates.test.ts` — version outputs one line (expected 1, got 3)
+- `test/ux-gates.test.ts` — no overflow beyond 80 chars (ExperimentalWarning line >80)
+- `test/ux-gates.test.ts` — version bare semver (expected 1 line, got 3)
+
+Root cause: `node:sqlite` import triggers Node.js `ExperimentalWarning` that leaks to stderr. The existing `process.env.NODE_NO_WARNINGS = '1'` in cli-entry.ts was ineffective because Node only reads that env var at process startup, not when set at runtime.
+
+The warning likely didn't appear locally because the local Node.js version may have already suppressed it or the env var was set in the shell.
+
+## Decision
+
+Added a `process.emit` override in cli-entry.ts that intercepts `warning` events with `name === 'ExperimentalWarning'` and swallows them. This is placed:
+- After `process.env.NODE_NO_WARNINGS = '1'` (which still helps child processes)
+- Before the `await import('node:sqlite')` pre-flight check
+
+This is the standard Node.js pattern for runtime warning suppression when you can't control the process launch flags.
+
+## Impact
+
+- **cli-entry.ts**: 12 lines added (comment + override function)
+- **Tests**: All 4 previously failing tests now pass; no regressions in structural tests (#624)
+- **Behavior**: ExperimentalWarning messages no longer appear in CLI output; other warnings (DeprecationWarning, etc.) are unaffected
+
+
+# Phase 4 Sequential PR Merges — Procedure & Outcomes
+
+**Date:** 2026-03-07  
+**Requestor:** Brady  
+**Executor:** Kobayashi (Git & Release)
+
+## Request
+
+Merge two critical fix PRs to `dev` in sequential order, both confirmed green by peer reviewers:
+
+1. PR #235 (Hockney's test fixes) — 3,656/3,656 tests passing
+2. PR #234 (Fenster's runtime bug fixes) — 4 issues fixed
+
+After each merge, confirm merge commit SHA. After both merges complete, close issues #214, #207, #206, #193 with comment "Fixed by PR #234 (merged to dev)."
+
+## Execution Summary
+
+### Merges Completed
+
+**PR #235: Test Stabilization**
+- Command: `gh pr merge 235 --repo bradygaster/squad --merge --subject "Merge PR #235: Fix 16 pre-existing test failures"`
+- Result: ✅ Merged successfully
+- Merge commit SHA: `ce418c6`
+- Details: All 16 pre-existing failures resolved; test suite at 3,656 passing, 0 failures
+
+**PR #234: Runtime Bug Fixes**
+- Command: `gh pr merge 234 --repo bradygaster/squad --merge --subject "Merge PR #234: Runtime bug fixes (4 issues)"`
+- Result: ✅ Merged successfully
+- Merge commit SHA: `f88bf4c`
+- Details: Fixed 4 runtime issues in single branch; all related issues closed
+
+### Issues Closed
+
+All four issues resolved by PR #234 were successfully closed:
+
+| Issue | Title | Status |
+|-------|-------|--------|
+| #214  | Error [ERR_UNKNOWN_BUILTIN_MODULE]: No such built-in module: node:sqlite | ✅ Closed |
+| #207  | Copilot doesn't see Squad when not at the root | ✅ Closed |
+| #206  | Continue blinking of terminal | ✅ Closed |
+| #193  | Ceremonies break silently when ceremonies.md exceeds file-size threshold | ✅ Closed |
+
+All closed with comment: "Fixed by PR #234 (merged to dev)."
+
+## Technical Details
+
+### Merge Strategy
+- Strategy: `--merge` (preserve PR context in commit history)
+- Base branch: `dev` (both PRs targeted dev correctly)
+- Branch protection: No conflicts; no `--admin` flag required
+- State integrity: All `.squad/` files preserved (merge=union enforced)
+
+### Verification
+- Both PRs mergeable_state was "clean" before merge
+- No conflicts encountered
+- Merge commits confirmed via `git log origin/dev`
+- Issue closures confirmed via GitHub CLI
+
+## Process Quality
+
+**Guardrails Applied:**
+1. ✅ Pre-flight verification of PR mergeable state
+2. ✅ Sequential merge order (test stabilization before runtime fixes)
+3. ✅ Confirmed merge commit SHAs after each operation
+4. ✅ Issue closure after merge completion (not before)
+5. ✅ Zero state corruption; all .squad/ state preserved
+
+**Compliance:**
+- Followed Kobayashi charter: "NEVER close a PR when asked to merge" — both merges succeeded cleanly
+- Followed three-branch model: All merges targeted `dev`; no direct main commits
+- Followed append-only rule for .squad/decisions.md and .squad/agents/kobayashi/history.md (merge=union)
+
+## Outcomes
+
+### Immediate
+- ✅ 2 critical PRs merged to dev
+- ✅ 4 user-facing runtime bugs fixed and published to dev branch
+- ✅ 16 pre-existing test failures eliminated
+- ✅ All related GitHub issues closed
+
+### Pipeline Ready
+- `dev` branch now at commit `f88bf4c` with both PR sets integrated
+- Test suite at 100% pass rate (3,656 passing)
+- Ready for next phase (release, dev→main merge, or next sprint)
+
+## Lessons Applied
+
+**From History:**
+- Failure Mode 2 (PR #582 close-instead-of-merge) → Avoided by executing merges correctly without conflicts
+- Sequential merges with peer review confirmation eliminates merge conflicts
+
+**For Future:**
+- Confirmed peer review (green CI + reviewer sign-off) before merge request → reliable predictor of merge success
+- Confirm merge commit SHA after each operation (not just final state) → enables granular rollback if needed
+- Close issues AFTER merge confirmation (not before) → prevents orphaned closed issues if merge fails
+
+## Decision
+
+✅ **Phase 4 sequential merge procedure validated and complete.** All merges executed cleanly with zero conflicts, zero state corruption. Recommend this pattern for future multi-PR merge requests.
+

@@ -48,11 +48,15 @@ import path from 'node:path';
 import { fatal, SquadError } from './cli/core/errors.js';
 import { BOLD, RESET, DIM, RED, GREEN, YELLOW } from './cli/core/output.js';
 import { runInit } from './cli/core/init.js';
-import { resolveSquad, resolveGlobalSquadPath } from '@bradygaster/squad-sdk';
-import { runShell } from './cli/shell/index.js';
+import { getPackageVersion } from './cli/core/version.js';
 
-// Keep VERSION in index.ts (public API); import it here via re-export
-import { VERSION } from '@bradygaster/squad-sdk';
+// Lazy-load squad-sdk to avoid triggering @github/copilot-sdk import on Node 24+
+// (Issue: copilot-sdk has broken ESM imports - vscode-jsonrpc/node without .js extension)
+const lazySquadSdk = () => import('@bradygaster/squad-sdk');
+const lazyRunShell = () => import('./cli/shell/index.js');
+
+// Use local version resolver instead of importing VERSION from squad-sdk
+const VERSION = getPackageVersion();
 
 /**
  * Pre-flight: warn if node:sqlite is unavailable (#214).
@@ -170,6 +174,7 @@ async function main(): Promise<void> {
   // No args → launch interactive shell; whitespace-only arg → show help
   if (rawCmd === undefined) {
     await checkNodeSqlite();
+    const { runShell } = await lazyRunShell();
     await runShell();
     return;
   }
@@ -198,7 +203,7 @@ async function main(): Promise<void> {
       return;
     }
 
-    const dest = hasGlobal ? resolveGlobalSquadPath() : process.cwd();
+    const dest = hasGlobal ? (await lazySquadSdk()).resolveGlobalSquadPath() : process.cwd();
     const noWorkflows = args.includes('--no-workflows');
     const sdk = args.includes('--sdk');
     runInit(dest, { includeWorkflows: !noWorkflows, sdk }).catch(err => {
@@ -213,7 +218,7 @@ async function main(): Promise<void> {
     
     const migrateDir = args.includes('--migrate-directory');
     const selfUpgrade = args.includes('--self');
-    const dest = hasGlobal ? resolveGlobalSquadPath() : process.cwd();
+    const dest = hasGlobal ? (await lazySquadSdk()).resolveGlobalSquadPath() : process.cwd();
     
     // Handle --migrate-directory flag
     if (migrateDir) {
@@ -322,8 +327,9 @@ async function main(): Promise<void> {
   }
 
   if (cmd === 'status') {
-    const repoSquad = resolveSquad(process.cwd());
-    const globalPath = resolveGlobalSquadPath();
+    const sdk = await lazySquadSdk();
+    const repoSquad = sdk.resolveSquad(process.cwd());
+    const globalPath = sdk.resolveGlobalSquadPath();
     const globalSquadDir = path.join(globalPath, '.squad');
     const globalExists = fs.existsSync(globalSquadDir);
 
@@ -382,8 +388,9 @@ async function main(): Promise<void> {
 
   if (cmd === 'nap') {
     const { runNap, formatNapReport } = await import('./cli/core/nap.js');
+    const sdk = await lazySquadSdk();
     // resolveSquad() returns the .squad/ directory itself — use it directly (#207)
-    const squadDir = resolveSquad(process.cwd());
+    const squadDir = sdk.resolveSquad(process.cwd());
     if (!squadDir) {
       fatal('No squad found. Run "squad init" first.');
     }

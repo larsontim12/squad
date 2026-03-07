@@ -958,3 +958,96 @@ pm test\: 3768 tests passed (2 pre-existing failures unrelated to changes)
 - **Remote Control architecture:** RemoteBridge = HTTP server (static files) + WebSocket server (events) + passthrough pipe (copilot --acp). Three layers, one server.
 - **squad rc wiring:** cli-entry.ts checks `cmd === 'rc' || cmd === 'remote-control'`, dynamic import, parse flags, call runRC()
 - **Devtunnel labels:** Only allow `[a-zA-Z0-9_-=]`, sanitize with regex replace, max 50 chars per label
+
+---
+
+## 2026-03-08: Node 24+ ESM Import Bug (Issue #XXX)
+
+### Problem
+
+User reported `squad init` crash on Node 24.11.1 in GitHub Codespaces with error:
+```
+Error [ERR_MODULE_NOT_FOUND]: Cannot find module 'vscode-jsonrpc/node' 
+imported from @github/copilot-sdk/dist/session.js
+Did you mean to import "vscode-jsonrpc/node.js"?
+```
+
+Node 24+ enforces strict ESM resolution requiring `.js` extensions. The `@github/copilot-sdk@0.1.32` has **inconsistent ESM imports**:
+- `session.js` imports `"vscode-jsonrpc/node"` ← BROKEN (missing .js)
+- `client.js` imports `"vscode-jsonrpc/node.js"` ← correct
+
+The `vscode-jsonrpc@8.2.1` package has NO `exports` field in its package.json, so extensionless imports fail on Node 24+.
+
+### Root Cause
+
+The cli-entry.ts had **eager top-level imports** that triggered copilot-sdk loading before any command executed:
+```typescript
+import { resolveSquad, resolveGlobalSquadPath } from '@bradygaster/squad-sdk';
+import { runShell } from './cli/shell/index.js';
+import { VERSION } from '@bradygaster/squad-sdk';
+```
+
+Even though `squad init` doesn't need CopilotSession, the import chain was:
+```
+cli-entry.js → squad-sdk barrel → (all wildcard exports load) → shell/index.ts → 
+SquadClient → adapter/client.ts → CopilotClient → @github/copilot-sdk → 
+vscode-jsonrpc/node → CRASH on Node 24+
+```
+
+### Fix Strategy: TWO-LAYER Defense
+
+**Layer 1: Lazy imports (MOST IMPORTANT)**
+
+Changed cli-entry.ts to use **dynamic imports** so copilot-sdk only loads when actually needed:
+
+1. Created lazy loaders:
+   ```typescript
+   const lazySquadSdk = () => import('@bradygaster/squad-sdk');
+   const lazyRunShell = () => import('./cli/shell/index.js');
+   ```
+
+2. Replaced top-level VERSION import with local version resolver:
+   ```typescript
+   import { getPackageVersion } from './cli/core/version.js';
+   const VERSION = getPackageVersion();
+   ```
+
+3. Updated all usages to await the lazy loaders:
+   ```typescript
+   const sdk = await lazySquadSdk();
+   const { runShell } = await lazyRunShell();
+   ```
+
+**Layer 2: Postinstall patch (belt-and-suspenders)**
+
+Created `packages/squad-cli/scripts/patch-esm-imports.mjs` that fixes the broken import at install time:
+
+- Searches multiple possible locations for copilot-sdk (workspace hoisting, global install, etc.)
+- Replaces `from "vscode-jsonrpc/node"` with `from "vscode-jsonrpc/node.js"`
+- Runs silently if copilot-sdk not found (CI environments)
+- Added to package.json: `"postinstall": "node scripts/patch-esm-imports.mjs"`
+- Added `scripts/` to files array so patch is published with package
+
+### Verification
+
+✅ `squad init` works without crashing (doesn't trigger copilot-sdk import)  
+✅ `squad --version` works (uses local version resolver)  
+✅ `squad status` works (lazy-loads squad-sdk only when needed)  
+✅ `squad` (shell) works (lazy-loads shell + copilot-sdk, patch applied)  
+✅ All REPL UX E2E tests pass (22/22) with patched copilot-sdk  
+✅ Build succeeds with 0 TypeScript errors  
+
+### Learnings
+
+- **Lazy imports are critical for CLI tools** — top-level imports trigger entire dependency graph loading, even for commands that don't need them
+- **Node 24+ strict ESM resolution** — extensionless imports fail if package has no `exports` field. Always use `.js` extensions in ESM imports.
+- **Postinstall patches are fragile but necessary** — when upstream dependency has bugs, patch at install time as backup. But primary fix should be lazy loading.
+- **npm workspace hoisting** — dependencies can live at workspace root, not package-local. Patch scripts must search multiple locations.
+- **VERSION import from barrel export triggers side effects** — even a simple `export const VERSION = pkg.version` in a barrel export can trigger entire module graph loading if other exports have imports. Use local version resolver instead.
+- **Dynamic imports are async** — all usages must be `await lazyLoader()`, can't use sync patterns
+- **Type-only imports are safe** — `import type { X }` doesn't trigger runtime loading, only used for TypeScript compilation
+- **Command routing should be lazy** — only import modules when their command is actually executed, not at CLI entry point
+
+### Impact
+
+This fix makes Squad work on Node 24+ in GitHub Codespaces and other strict ESM environments. Commands that don't need Copilot (init, status, migrate, doctor, etc.) now have ZERO dependency on copilot-sdk loading. Shell commands lazy-load when needed.

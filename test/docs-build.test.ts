@@ -17,9 +17,9 @@ const DIST_DIR = join(DOCS_DIR, 'dist');
 // Expected content directories in src/content/docs/
 const EXPECTED_GET_STARTED = ['installation', 'first-session'];
 
-const EXPECTED_GUIDES = ['tips-and-tricks', 'sample-prompts', 'personal-squad', 'contributing', 'contributors'];
+const EXPECTED_GUIDES = ['tips-and-tricks', 'sample-prompts', 'personal-squad', 'contributing', 'contributors', 'shell'];
 
-const EXPECTED_REFERENCE = ['cli', 'sdk', 'config'];
+const EXPECTED_REFERENCE = ['cli', 'sdk', 'config', 'api-reference', 'integration', 'tools-and-hooks'];
 
 const EXPECTED_SCENARIOS = [
   'issue-driven-dev', 'existing-repo', 'ci-cd-integration', 'solo-dev', 'monorepo', 'team-of-humans',

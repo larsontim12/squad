@@ -720,10 +720,13 @@ prompt: |
   You are the Scribe. Read .squad/agents/scribe/charter.md.
   TEAM ROOT: {team_root}
 
-  SPAWN MANIFEST: {spawn_manifest}
+SPAWN MANIFEST: {spawn_manifest}
 
   Tasks (in order):
-  1. ORCHESTRATION LOG: Write .squad/orchestration-log/{timestamp}-{agent}.md per agent. Use filename-safe ISO 8601 UTC timestamp (replace colons with hyphens, e.g., `2026-02-23T20-16-27Z` not `2026-02-23T20:16:27Z`).
+  Include token usage from agent responses in the manifest when available.
+
+  Tasks (in order):
+  1. ORCHESTRATION LOG: Write .squad/orchestration-log/{timestamp}-{agent}.md per agent. Include token usage (inputTokens, outputTokens, estimatedCostUsd) from the spawn manifest in the **Token usage** row. Use filename-safe ISO 8601 UTC timestamp (replace colons with hyphens, e.g., `2026-02-23T20-16-27Z` not `2026-02-23T20:16:27Z`).
   2. SESSION LOG: Write .squad/log/{timestamp}-{topic}.md. Brief. Use filename-safe ISO 8601 UTC timestamp (replace colons with hyphens, e.g., `2026-02-23T20-16-27Z`).
   3. DECISION INBOX: Merge .squad/decisions/inbox/ → decisions.md, delete inbox files. Deduplicate.
   4. CROSS-AGENT: Append team updates to affected agents' history.md.

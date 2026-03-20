@@ -136,6 +136,10 @@
       "types": "./dist/cli/commands/copilot.d.ts",
       "import": "./dist/cli/commands/copilot.js"
     },
+    "./commands/cost": {
+      "types": "./dist/cli/commands/cost.d.ts",
+      "import": "./dist/cli/commands/cost.js"
+    },
     "./commands/copilot-bridge": {
       "types": "./dist/cli/commands/copilot-bridge.d.ts",
       "import": "./dist/cli/commands/copilot-bridge.js"

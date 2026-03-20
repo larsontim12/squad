@@ -79,6 +79,7 @@ import path from 'node:path';
 import { fatal, SquadError } from './cli/core/errors.js';
 import { BOLD, RESET, DIM, RED, GREEN, YELLOW } from './cli/core/output.js';
 import { runInit } from './cli/core/init.js';
+import { runCost } from './cli/commands/cost.js';
 import { getPackageVersion } from './cli/core/version.js';
 
 // Lazy-load squad-sdk to avoid triggering @github/copilot-sdk import on Node 24+
@@ -145,6 +146,8 @@ async function main(): Promise<void> {
     console.log(`  ${BOLD}status${RESET}     Show which squad is active and why`);
     console.log(`  ${BOLD}roles${RESET}      List built-in Squad roles`);
     console.log(`             Usage: roles [--category <name>] [--search <query>]`);
+    console.log(`  ${BOLD}cost${RESET}       Report token usage from orchestration logs`);
+    console.log(`             Flags: --all, --agent <name>`);
     console.log(`  ${BOLD}triage${RESET}     Scan for work and categorize issues`);
     console.log(`             Usage: triage [--interval <minutes>]`);
     console.log(`             Default: checks every 10 minutes (Ctrl+C to stop)`);
@@ -413,6 +416,23 @@ async function main(): Promise<void> {
   if (cmd === 'roles') {
     const { runRoles } = await import('./cli/commands/roles.js');
     await runRoles(args.slice(1));
+    return;
+  }
+
+  if (cmd === 'cost') {
+    const sdk = await lazySquadSdk();
+    const localSquad = sdk.resolveSquad(process.cwd());
+    const globalPath = sdk.resolveGlobalSquadPath();
+    const globalSquadDir = path.join(globalPath, '.squad');
+    const teamRoot = localSquad
+      ? path.resolve(localSquad, '..')
+      : (fs.existsSync(globalSquadDir) ? globalPath : null);
+
+    if (!teamRoot) {
+      fatal('No squad found. Run "squad init" first.');
+    }
+
+    await runCost(args.slice(1), teamRoot);
     return;
   }
 

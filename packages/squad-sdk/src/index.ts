@@ -65,6 +65,7 @@ export * from './streams/index.js';
 export {
   defineTeam,
   defineAgent,
+  defineBudget,
   defineRouting,
   defineCeremony,
   defineHooks,
@@ -79,6 +80,7 @@ export type {
   AgentRef,
   ScheduleExpression,
   BuilderModelId,
+  BudgetDefinition,
   ModelPreference,
   DefaultsDefinition,
   TeamDefinition,

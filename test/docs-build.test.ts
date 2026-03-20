@@ -55,6 +55,7 @@ const EXPECTED_FEATURES = [
   'consult-mode',
   'context-hygiene',
   'copilot-coding-agent',
+  'cost-tracking',
   'directives',
   'distributed-mesh',
   'enterprise-platforms',

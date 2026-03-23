@@ -1,20 +1,16 @@
-name: Publish to npm
-# Publishes squad-sdk and squad-cli to npm with provenance
-
+name: Squad npm Publish
 on:
   release:
     types: [published]
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version to publish (e.g., 0.8.21)'
+        description: 'Version to publish (e.g., 0.9.1)'
         required: true
         type: string
-
 permissions:
   contents: read
   id-token: write
-
 jobs:
   smoke-test:
     name: CLI packaging smoke test
@@ -23,22 +19,17 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-
       - name: Install dependencies
         run: npm ci
-
       - name: Build
         run: npm run build
         env:
           SKIP_BUILD_BUMP: '1'
-
       - name: Run CLI smoke tests
         run: npx vitest run test/cli-packaging-smoke.test.ts
-
   publish-sdk:
     name: Publish @bradygaster/squad-sdk
     needs: smoke-test
@@ -47,12 +38,10 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           registry-url: 'https://registry.npmjs.org'
-
       - name: Determine version
         id: version
         run: |
@@ -63,14 +52,11 @@ jobs:
             VERSION="${{ github.event.inputs.version }}"
           fi
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
-          echo "📦 Publishing version: ${VERSION}"
-
+          echo "Publishing version: ${VERSION}"
       - name: Install dependencies
         run: npm ci
-
       - name: Build squad-sdk
         run: npm -w packages/squad-sdk run build
-
       - name: Verify package version matches target
         run: |
           PKG_VERSION=$(node -p "require('./packages/squad-sdk/package.json').version")
@@ -78,26 +64,22 @@ jobs:
             echo "::error::Package version ($PKG_VERSION) does not match target version (${{ steps.version.outputs.version }})"
             exit 1
           fi
-          echo "✅ Package version matches: $PKG_VERSION"
-
+          echo "Package version matches: $PKG_VERSION"
       - name: Publish squad-sdk to npm
         run: npm -w packages/squad-sdk publish --access public --provenance
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
       - name: Verify npm publication
         run: |
-          echo "✅ @bradygaster/squad-sdk@${{ steps.version.outputs.version }} published to npm"
           for i in 1 2 3 4 5; do
             if npm view @bradygaster/squad-sdk@${{ steps.version.outputs.version }} version 2>/dev/null; then
-              echo "✅ Verified on npm registry"
+              echo "Verified on npm registry"
               exit 0
             fi
-            echo "⏳ Registry propagation attempt $i/5, waiting 15s..."
+            echo "Registry propagation attempt $i/5, waiting 15s..."
             sleep 15
           done
-          echo "⚠️ Registry propagation slow — package was published successfully, verification timed out"
-
+          echo "Registry propagation slow but package was published successfully"
   publish-cli:
     name: Publish @bradygaster/squad-cli
     needs: [smoke-test, publish-sdk]
@@ -106,12 +88,10 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           registry-url: 'https://registry.npmjs.org'
-
       - name: Determine version
         id: version
         run: |
@@ -122,11 +102,9 @@ jobs:
             VERSION="${{ github.event.inputs.version }}"
           fi
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
-          echo "📦 Publishing version: ${VERSION}"
-
+          echo "Publishing version: ${VERSION}"
       - name: Install dependencies
         run: npm ci
-
       - name: Guard against file: dependencies
         run: |
           SDK_DEP=$(node -p "require('./packages/squad-cli/package.json').dependencies['@bradygaster/squad-sdk']")
@@ -134,14 +112,11 @@ jobs:
             echo "::error::squad-cli has file: dependency on squad-sdk — this breaks global installs"
             exit 1
           fi
-          echo "✅ SDK dependency is safe: $SDK_DEP"
-
+          echo "SDK dependency is safe: $SDK_DEP"
       - name: Build squad-sdk (required for CLI project references)
         run: npm -w packages/squad-sdk run build
-
       - name: Build squad-cli
         run: npm -w packages/squad-cli run build
-
       - name: Verify package version matches target
         run: |
           PKG_VERSION=$(node -p "require('./packages/squad-cli/package.json').version")
@@ -149,22 +124,19 @@ jobs:
             echo "::error::Package version ($PKG_VERSION) does not match target version (${{ steps.version.outputs.version }})"
             exit 1
           fi
-          echo "✅ Package version matches: $PKG_VERSION"
-
+          echo "Package version matches: $PKG_VERSION"
       - name: Publish squad-cli to npm
         run: npm -w packages/squad-cli publish --access public --provenance
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
       - name: Verify npm publication
         run: |
-          echo "✅ @bradygaster/squad-cli@${{ steps.version.outputs.version }} published to npm"
           for i in 1 2 3 4 5; do
             if npm view @bradygaster/squad-cli@${{ steps.version.outputs.version }} version 2>/dev/null; then
-              echo "✅ Verified on npm registry"
+              echo "Verified on npm registry"
               exit 0
             fi
-            echo "⏳ Registry propagation attempt $i/5, waiting 15s..."
+            echo "Registry propagation attempt $i/5, waiting 15s..."
             sleep 15
           done
-          echo "⚠️ Registry propagation slow — package was published successfully, verification timed out"
+          echo "Registry propagation slow but package was published successfully"
